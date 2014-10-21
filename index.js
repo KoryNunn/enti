@@ -62,11 +62,12 @@ Enti.prototype.get = function(key){
 Enti.prototype.set = function(key, value){
     var original = this._previousModel[key];
 
-    if(deepEqual(value, original)){
+    if(value === original){
         return;
     }
 
     this._model[key] = value;
+    this._previousModel[key] = value;
 
     emit(this._model, key, value, original);
 };
