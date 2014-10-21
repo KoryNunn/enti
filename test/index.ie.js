@@ -1,4 +1,5 @@
-(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({"/home/kory/dev/enti/index.js":[function(require,module,exports){
+{}
+(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw (f.code="MODULE_NOT_FOUND", f)}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({"/home/kory/dev/enti/index.js":[function(require,module,exports){
 var EventEmitter = require('events').EventEmitter,
     flatMerge = require('flat-merge'),
     deepEqual = require('deep-equal'),
@@ -2828,7 +2829,7 @@ LeakMap.prototype.clear = function(){
     this._keys = [];
     this._values = [];
 };
-LeakMap.prototype.delete = function(key){
+LeakMap.prototype["delete"] = function(key){
     validateKey(key);
     var keyIndex = this._keys.indexOf(key);
     if(keyIndex>=0){

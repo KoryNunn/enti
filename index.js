@@ -1,5 +1,4 @@
-var modelOpperations = require('./modelOperations'),
-    EventEmitter = require('events').EventEmitter,
+var EventEmitter = require('events').EventEmitter,
     flatMerge = require('flat-merge'),
     deepEqual = require('deep-equal'),
     WM = require('./weakmap'),
@@ -21,9 +20,11 @@ function emit(model, key, value, original){
 }
 
 function Enti(object){
-    if(object && (typeof object === 'object' || typeof object === 'function')){
-        this.attach(object);
+    if(!object || (typeof object !== 'object' && typeof object !== 'function')){
+        object = {};
     }
+        
+    this.attach(object);
 }
 Enti.prototype = Object.create(EventEmitter.prototype);
 Enti.prototype.constructor = Enti;
@@ -56,7 +57,7 @@ Enti.prototype.detach = function(){
     references.splice(references.indexOf(this._model),1);
 };
 Enti.prototype.get = function(key){
-    return modelOpperations.get(key, this._model);
+    return this._model[key];
 };
 Enti.prototype.set = function(key, value){
     var original = this._previousModel[key];
