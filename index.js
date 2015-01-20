@@ -19,12 +19,12 @@ function emit(model, key, value, original){
     }
 }
 
-function Enti(object){
-    if(!object || (typeof object !== 'object' && typeof object !== 'function')){
-        object = {};
+function Enti(model){
+    if(!model || (typeof model !== 'object' && typeof model !== 'function')){
+        model = {};
     }
         
-    this.attach(object);
+    this.attach(model);
 }
 Enti.prototype = Object.create(EventEmitter.prototype);
 Enti.prototype.constructor = Enti;
@@ -39,8 +39,6 @@ Enti.prototype.attach = function(model){
     }
 
     references.push(this);
-
-    this._previousModel = flatMerge(null, model);
 
     this._model = model;
 };
@@ -59,15 +57,15 @@ Enti.prototype.detach = function(){
 Enti.prototype.get = function(key){
     return this._model[key];
 };
-Enti.prototype.set = function(key, value){
-    var original = this._previousModel[key];
 
-    if(value === original){
+Enti.prototype.set = function(key, value){
+    var original = this._model[key];
+
+    if(value && typeof value !== 'object' && value === original){
         return;
     }
 
     this._model[key] = value;
-    this._previousModel[key] = value;
 
     emit(this._model, key, value, original);
 };

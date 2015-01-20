@@ -8,7 +8,6 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "ieify": "cat test/index.browser.js | ieify > test/index.ie.js",
     "watch": "watchify test/index.js -o test/index.browser.js"
   },
   "author": "",
@@ -16,13 +15,11 @@
   "dependencies": {
     "clone": "^0.1.18",
     "deep-equal": "^0.2.1",
-    "es5-shim-sham": "0.0.1",
     "flat-merge": "^1.0.0",
     "leak-map": "^1.0.2",
     "weak-map": "^1.0.5"
   },
   "devDependencies": {
-    "grape": "^1.0.3",
-    "ieify": "^1.1.0"
+    "tape": "^3.4.0"
   }
 }
