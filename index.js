@@ -55,6 +55,9 @@ Enti.prototype.detach = function(){
     references.splice(references.indexOf(this._model),1);
 };
 Enti.prototype.get = function(key){
+    if(key === '.'){
+        return this._model;
+    }
     return this._model[key];
 };
 
@@ -68,6 +71,26 @@ Enti.prototype.set = function(key, value){
     this._model[key] = value;
 
     emit(this._model, key, value, original);
+    emit(this._model, '.', this._model);
+};
+
+Enti.prototype.push = function(key, value){
+    var target;
+    if(arguments.length < 2){
+        value = key;
+        target = this._model;
+    }else{
+        target = this._model[key];
+    }
+
+    if(!Array.isArray(target)){
+        throw "The target is not an array.";
+    }
+
+    target.push(value);
+
+    emit(target, target.length-1, value);
+    emit(target, '.', target);
 };
 
 module.exports = Enti;
