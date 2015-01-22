@@ -63,3 +63,47 @@ tape('swapped reference', function(t){
 
     model2.set('a', 1);
 });
+
+tape('push', function(t){
+    t.plan(2);
+
+    var object = {
+            items: []
+        },
+        model = new Enti(object);
+
+    model.on('items', function(value, previous){
+        t.deepEqual(value, [5]);
+        t.equal(previous, undefined);
+    });
+    model.on('.', function(value, previous){
+        t.fail();
+    });
+    model.on('0', function(value, previous){
+        t.fail();
+    });
+
+    model.attach(object);
+
+    model.push('items', 5);
+});
+
+tape('push self', function(t){
+    t.plan(4);
+
+    var object = [],
+        model = new Enti(object);
+
+    model.on('.', function(value, previous){
+        t.deepEqual(value, [5]);
+        t.equal(previous, undefined);
+    });
+    model.on('0', function(value, previous){
+        t.deepEqual(value, 5);
+        t.equal(previous, undefined);
+    });
+
+    model.attach(object);
+
+    model.push(5);
+});

@@ -78,6 +78,7 @@ Enti.prototype.push = function(key, value){
     var target;
     if(arguments.length < 2){
         value = key;
+        key = '.';
         target = this._model;
     }else{
         target = this._model[key];
@@ -90,7 +91,8 @@ Enti.prototype.push = function(key, value){
     target.push(value);
 
     emit(target, target.length-1, value);
-    emit(target, '.', target);
+
+    emit(this._model, key, target);
 };
 
 module.exports = Enti;
