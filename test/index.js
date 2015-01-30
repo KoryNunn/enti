@@ -31,6 +31,21 @@ tape('events', function(t){
     model.set('a', 1);
 });
 
+tape('events own keys modified', function(t){
+    t.plan(2);
+
+    var model = new Enti({});
+
+    model.on('*', function(value, previous){
+        t.deepEqual(value, {a:1});
+        t.equal(previous, undefined);
+    });
+
+    model.set('a', 1);
+
+    model.set('a', 2);
+});
+
 tape('shared events', function(t){
     t.plan(2);
 
@@ -70,13 +85,17 @@ tape('push', function(t){
     var object = {
             items: []
         },
-        model = new Enti(object);
+        model = new Enti(object),
+        itemsModel = new Enti(object.items);
 
-    model.on('items', function(value, previous){
+    itemsModel.on('*', function(value, previous){
         t.deepEqual(value, [5]);
         t.equal(previous, undefined);
     });
-    model.on('.', function(value, previous){
+    model.on('items', function(value, previous){
+        t.fail();
+    });
+    model.on('*', function(value, previous){
         t.fail();
     });
     model.on('0', function(value, previous){
@@ -94,7 +113,7 @@ tape('push self', function(t){
     var object = [],
         model = new Enti(object);
 
-    model.on('.', function(value, previous){
+    model.on('*', function(value, previous){
         t.deepEqual(value, [5]);
         t.equal(previous, undefined);
     });
@@ -106,4 +125,60 @@ tape('push self', function(t){
     model.attach(object);
 
     model.push(5);
+});
+
+tape('remove', function(t){
+    t.plan(2);
+
+    var object = [1,2,3],
+        model = new Enti(object);
+
+    model.on('*', function(value){
+        t.deepEqual(value, [1,3]);
+    });
+    model.on('length', function(value){
+        t.equal(value, 2);
+    });
+
+    model.attach(object);
+
+    model.remove('1');
+});
+
+tape('detach during event', function(t){
+    t.plan(2);
+
+    var object = {},
+        model1 = new Enti(object);
+        model2 = new Enti(object);
+
+    model1.on('foo', function(value){
+        t.pass('model1 emitted');
+        model1.detach();
+    }).attach(object);
+
+    model2.on('foo', function(value){
+        t.pass('model2 emitted');
+    }).attach(object);
+
+    model1.set('foo', 1);
+});
+
+tape('detach other during event', function(t){
+    t.plan(1);
+
+    var object = {},
+        model1 = new Enti(object);
+        model2 = new Enti(object);
+
+    model1.on('foo', function(value){
+        t.pass('model1 emitted');
+        model2.detach();
+    }).attach(object);
+
+    model2.on('foo', function(value){
+        t.pass('model2 emitted');
+    }).attach(object);
+
+    model1.set('foo', 1);
 });

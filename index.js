@@ -1,9 +1,5 @@
 var EventEmitter = require('events').EventEmitter,
-    flatMerge = require('flat-merge'),
-    deepEqual = require('deep-equal'),
-    WM = require('./weakmap'),
-    arrayProto = [],
-    rootKey = '$';
+    WM = require('./weakmap');
 
 var attachedEnties = new WM();
 
@@ -14,8 +10,12 @@ function emit(model, key, value, original){
         return;
     }
 
-    for(var i = 0; i < references.length; i++){
-        references[i].emit(key, value, original);
+    var toEmit = references.slice();
+
+    for(var i = 0; i < toEmit.length; i++){
+        if(~references.indexOf(toEmit[i])){
+            toEmit[i].emit(key, value, original);
+        }
     }
 }
 
@@ -52,7 +52,7 @@ Enti.prototype.detach = function(){
         return;
     }
 
-    references.splice(references.indexOf(this._model),1);
+    references.splice(references.indexOf(this),1);
 };
 Enti.prototype.get = function(key){
     if(key === '.'){
@@ -68,10 +68,18 @@ Enti.prototype.set = function(key, value){
         return;
     }
 
+    var keysChanged = !(key in this._model);
+
     this._model[key] = value;
 
     emit(this._model, key, value, original);
-    emit(this._model, '.', this._model);
+
+    if(keysChanged){
+        emit(this._model, '*', this._model);
+        if(Array.isArray(this._model)){
+            emit(this._model, 'length', this._model.length);
+        }
+    }
 };
 
 Enti.prototype.push = function(key, value){
@@ -85,14 +93,31 @@ Enti.prototype.push = function(key, value){
     }
 
     if(!Array.isArray(target)){
-        throw "The target is not an array.";
+        throw 'The target is not an array.';
     }
 
     target.push(value);
 
     emit(target, target.length-1, value);
 
-    emit(this._model, key, target);
+    emit(target, 'length', target.length);
+
+    emit(target, '*', target);
+};
+
+Enti.prototype.remove = function(key){
+    if(key === '.'){
+        throw '. (self) is not a valid key to remove';
+    }
+
+    if(Array.isArray(this._model)){
+        this._model.splice(key, 1);
+        emit(this._model, 'length', this._model.length);
+    }else{
+        delete this._model[key];
+    }
+
+    emit(this._model, '*', this._model);
 };
 
 module.exports = Enti;
