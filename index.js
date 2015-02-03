@@ -3,7 +3,7 @@ var EventEmitter = require('events').EventEmitter,
 
 var attachedEnties = new WM();
 
-function emit(model, key, value, original){
+function emit(model, key, value){
     var references = attachedEnties.get(model);
 
     if(!references || !references.length){
@@ -14,7 +14,7 @@ function emit(model, key, value, original){
 
     for(var i = 0; i < toEmit.length; i++){
         if(~references.indexOf(toEmit[i])){
-            toEmit[i].emit(key, value, original);
+            toEmit[i].emit(key, value);
         }
     }
 }
@@ -64,7 +64,7 @@ Enti.prototype.get = function(key){
 Enti.prototype.set = function(key, value){
     var original = this._model[key];
 
-    if(value && typeof value !== 'object' && value === original){
+    if(typeof value !== 'object' && value === original){
         return;
     }
 
@@ -72,7 +72,7 @@ Enti.prototype.set = function(key, value){
 
     this._model[key] = value;
 
-    emit(this._model, key, value, original);
+    emit(this._model, key, value);
 
     if(keysChanged){
         emit(this._model, '*', this._model);
@@ -105,7 +105,14 @@ Enti.prototype.push = function(key, value){
     emit(target, '*', target);
 };
 
-Enti.prototype.remove = function(key){
+Enti.prototype.remove = function(key, subKey){
+
+    // Remove a key off of an object at 'key'
+    if(subKey != null){
+        new Enti(this._model[key]).remove(subKey);
+        return;
+    }
+
     if(key === '.'){
         throw '. (self) is not a valid key to remove';
     }
