@@ -127,6 +127,54 @@ tape('push self', function(t){
     model.push(5);
 });
 
+tape('insert', function(t){
+    t.plan(2);
+
+    var object = {
+            items: [1,2,3]
+        },
+        model = new Enti(object),
+        itemsModel = new Enti(object.items);
+
+    itemsModel.on('*', function(value, previous){
+        t.deepEqual(value, [1, 5, 2, 3]);
+        t.equal(previous, undefined);
+    });
+    model.on('items', function(value, previous){
+        t.fail();
+    });
+    model.on('*', function(value, previous){
+        t.fail();
+    });
+    model.on('1', function(value, previous){
+        t.fail();
+    });
+
+    model.attach(object);
+
+    model.insert('items', 5, 1);
+});
+
+tape('insert self', function(t){
+    t.plan(4);
+
+    var object = [1,2,3],
+        model = new Enti(object);
+
+    model.on('*', function(value, previous){
+        t.deepEqual(value, [1, 5, 2, 3]);
+        t.equal(previous, undefined);
+    });
+    model.on('1', function(value, previous){
+        t.deepEqual(value, 5);
+        t.equal(previous, undefined);
+    });
+
+    model.attach(object);
+
+    model.insert(5, 1);
+});
+
 tape('remove', function(t){
     t.plan(2);
 

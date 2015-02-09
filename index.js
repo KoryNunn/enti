@@ -1,6 +1,10 @@
 var EventEmitter = require('events').EventEmitter,
     WM = require('./weakmap');
 
+function toArray(items){
+    return Array.prototype.slice.call(items);
+}
+
 var attachedEnties = new WM();
 
 function emit(model, key, value){
@@ -26,70 +30,40 @@ function Enti(model){
         
     this.attach(model);
 }
-Enti.prototype = Object.create(EventEmitter.prototype);
-Enti.prototype.constructor = Enti;
-Enti.prototype.attach = function(model){
-    this.detach();
-
-    var references = attachedEnties.get(model);
-
-    if(!references){
-        references = [];
-        attachedEnties.set(model, references);
-    }
-
-    references.push(this);
-
-    this._model = model;
-};
-Enti.prototype.detach = function(){
-    if(!this._model){
-        return;
-    }
-    var references = attachedEnties.get(this._model);
-
-    if(!references){
-        return;
-    }
-
-    references.splice(references.indexOf(this),1);
-};
-Enti.prototype.get = function(key){
+Enti.get = function(model, key){
     if(key === '.'){
-        return this._model;
+        return model;
     }
-    return this._model[key];
+    return model[key];
 };
-
-Enti.prototype.set = function(key, value){
-    var original = this._model[key];
+Enti.set = function(model, key, value){
+    var original = model[key];
 
     if(typeof value !== 'object' && value === original){
         return;
     }
 
-    var keysChanged = !(key in this._model);
+    var keysChanged = !(key in model);
 
-    this._model[key] = value;
+    model[key] = value;
 
-    emit(this._model, key, value);
+    emit(model, key, value);
 
     if(keysChanged){
-        emit(this._model, '*', this._model);
-        if(Array.isArray(this._model)){
-            emit(this._model, 'length', this._model.length);
+        emit(model, '*', model);
+        if(Array.isArray(model)){
+            emit(model, 'length', model.length);
         }
     }
 };
-
-Enti.prototype.push = function(key, value){
+Enti.push = function(model, key, value){
     var target;
-    if(arguments.length < 2){
+    if(arguments.length < 3){
         value = key;
         key = '.';
-        target = this._model;
+        target = model;
     }else{
-        target = this._model[key];
+        target = model[key];
     }
 
     if(!Array.isArray(target)){
@@ -104,12 +78,33 @@ Enti.prototype.push = function(key, value){
 
     emit(target, '*', target);
 };
+Enti.insert = function(model, key, value, index){
+    var target;
+    if(arguments.length < 4){
+        index = value;
+        value = key;
+        key = '.';
+        target = model;
+    }else{
+        target = model[key];
+    }
 
-Enti.prototype.remove = function(key, subKey){
+    if(!Array.isArray(target)){
+        throw 'The target is not an array.';
+    }
 
+    target.splice(index, 0, value);
+
+    emit(target, index, value);
+
+    emit(target, 'length', target.length);
+
+    emit(target, '*', target);
+};
+Enti.remove = function(model, key, subKey){
     // Remove a key off of an object at 'key'
     if(subKey != null){
-        new Enti(this._model[key]).remove(subKey);
+        new Enti.remove(model[key], subKey);
         return;
     }
 
@@ -117,14 +112,101 @@ Enti.prototype.remove = function(key, subKey){
         throw '. (self) is not a valid key to remove';
     }
 
-    if(Array.isArray(this._model)){
-        this._model.splice(key, 1);
-        emit(this._model, 'length', this._model.length);
+    if(Array.isArray(model)){
+        model.splice(key, 1);
+        emit(model, 'length', model.length);
     }else{
-        delete this._model[key];
+        delete model[key];
     }
 
-    emit(this._model, '*', this._model);
+    emit(model, '*', model);
+};
+Enti.move = function(model, key, index){
+    var model = model;
+
+    if(key === index){
+        return;
+    }
+
+    if(!Array.isArray(model)){
+        throw 'The model is not an array.';
+    }
+
+    var item = model[key];
+
+    model.splice(key, 1);
+
+    model.splice(index - (index > key ? 0 : 1), 0, item);
+
+    emit(model, '*', model);
+};
+Enti.prototype = Object.create(EventEmitter.prototype);
+Enti.prototype.constructor = Enti;
+var attached = 0;
+Enti.prototype.attach = function(model){
+
+    // attached++; 
+    // console.log(attached);
+    
+    this.detach();
+
+    var references = attachedEnties.get(model);
+
+
+    if(!references){
+        references = [];
+        attachedEnties.set(model, references);
+    }
+
+
+    references.push(this);
+
+    this._model = model;
+};
+Enti.prototype.detach = function(){
+    if(!this._model){
+        return;
+    }
+
+    // attached--;
+    // console.log(attached);
+
+    var references = attachedEnties.get(this._model);
+
+    if(!references){
+        return;
+    }
+
+    references.splice(references.indexOf(this),1);
+
+    if(!references.length){
+        attachedEnties.delete(this._model);
+    }
+
+    this._model = {};
+};
+Enti.prototype.get = function(key){
+    return Enti.get(this._model, key);
+};
+
+Enti.prototype.set = function(key, value){
+    return Enti.set(this._model, key, value);
+};
+
+Enti.prototype.push = function(key, value){
+    return Enti.push.apply(null, [this._model].concat(toArray(arguments)));
+};
+
+Enti.prototype.insert = function(key, value, index){
+    return Enti.insert.apply(null, [this._model].concat(toArray(arguments)));
+};
+
+Enti.prototype.remove = function(key, subKey){
+    return Enti.remove.apply(null, [this._model].concat(toArray(arguments)));
+};
+
+Enti.prototype.move = function(key, index){
+    return Enti.move.apply(null, [this._model].concat(toArray(arguments)));
 };
 
 module.exports = Enti;
