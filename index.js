@@ -142,11 +142,7 @@ Enti.move = function(model, key, index){
 };
 Enti.prototype = Object.create(EventEmitter.prototype);
 Enti.prototype.constructor = Enti;
-var attached = 0;
 Enti.prototype.attach = function(model){
-
-    // attached++; 
-    // console.log(attached);
     
     this.detach();
 
@@ -167,9 +163,6 @@ Enti.prototype.detach = function(){
     if(!this._model){
         return;
     }
-
-    // attached--;
-    // console.log(attached);
 
     var references = attachedEnties.get(this._model);
 
