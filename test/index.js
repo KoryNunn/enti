@@ -193,6 +193,28 @@ tape('remove', function(t){
     model.remove('1');
 });
 
+tape('update', function(t){
+    t.plan(2);
+
+    var object = {},
+        model1 = new Enti(object);
+
+    model1.on('*', function(value){
+        t.pass('model1 emitted');
+    }).attach(object);
+
+    model1.on('a', function(value){
+        t.pass('model1 emitted');
+    }).attach(object);
+
+    model1.update({
+        a:'bla',
+        b:'bla',
+        c:'bla',
+        d:'bla'
+    });
+});
+
 tape('detach during event', function(t){
     t.plan(2);
 

@@ -140,6 +140,41 @@ Enti.move = function(model, key, index){
 
     emit(model, '*', model);
 };
+Enti.update = function(model, key, value){
+    var target,
+        isArray = Array.isArray(value);
+
+    if(arguments.length < 3){
+        value = key;
+        key = '.';
+        target = model;
+    }else{
+        target = model[key];
+
+        if(target == null){
+            model[key] = isArray ? [] : {};
+        }
+    }
+
+    if(typeof value !== 'object'){
+        throw 'The value is not an object.';
+    }
+
+    if(typeof target !== 'object'){
+        throw 'The target is not an object.';
+    }
+
+    for(var key in value){
+        target[key] = value[key];
+        emit(target, key, value[key]);
+    }
+    
+    if(isArray){
+        emit(target, 'length', target.length);
+    }
+
+    emit(target, '*', target);
+};
 Enti.prototype = Object.create(EventEmitter.prototype);
 Enti.prototype.constructor = Enti;
 Enti.prototype.attach = function(model){
@@ -200,6 +235,10 @@ Enti.prototype.remove = function(key, subKey){
 
 Enti.prototype.move = function(key, index){
     return Enti.move.apply(null, [this._model].concat(toArray(arguments)));
+};
+
+Enti.prototype.update = function(key, index){
+    return Enti.update.apply(null, [this._model].concat(toArray(arguments)));
 };
 
 module.exports = Enti;
