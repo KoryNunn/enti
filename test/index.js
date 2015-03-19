@@ -108,7 +108,7 @@ tape('push', function(t){
 });
 
 tape('push self', function(t){
-    t.plan(4);
+    t.plan(2);
 
     var object = [],
         model = new Enti(object);
@@ -251,4 +251,134 @@ tape('detach other during event', function(t){
     }).attach(object);
 
     model1.set('foo', 1);
+});
+
+tape('deep get', function(t){
+    t.plan(1);
+
+    var model1 = new Enti({a:{b:1}});
+
+    t.equal(model1.get('a.b'), 1);
+});
+
+tape('deep set', function(t){
+    t.plan(1);
+
+    var model1 = new Enti({a:{b:1}});
+
+    model1.set('a.b', 2);
+
+    t.equal(model1.get('a.b'), 2);
+});
+
+tape('deep events', function(t){
+    t.plan(1);
+
+    var model1 = new Enti({a:{b:1}}),
+        model2 = new Enti(model1._model.a);
+
+    model1.on('a.b', function(value){
+        t.equal(value, 2);
+    });
+
+    model2.set('b', 2);
+});
+
+tape('so many deep events', function(t){
+    t.plan(1);
+
+    var model = {
+            a: {
+                b: {
+                    c: 1
+                }
+            }
+        };
+
+    var emits = 0;
+
+    var start = Date.now();
+
+    for(var i = 0; i < 10000; i++){
+        new Enti(model).on('a.b.c', function(){
+            emits++;
+        });
+    }
+
+    console.log('attach', Date.now() - start);
+
+    Enti.set(model, 'a.b.c', 2);
+
+    console.log('triggered', Date.now() - start);
+
+    t.equal(emits, 10000);
+});
+
+tape('deep events wildcard', function(t){
+    t.plan(1);
+
+    var model1 = new Enti({a:{b:1}}),
+        model2 = new Enti(model1._model.a);
+
+    model1.on('*.b', function(value){
+        t.equal(value, 2);
+    });
+
+    model2.set('b', 2);
+});
+
+tape('any depth events wildcard', function(t){
+    t.plan(1);
+
+    var model1 = new Enti({a:{b:{c:1}}}),
+        model2 = new Enti(model1._model.a.b);
+
+    model1.on('**.c', function(value){
+        t.equal(value, 2);
+    });
+
+    model2.set('c', 2);
+});
+
+tape('any depth events wildcard', function(t){
+    t.plan(1);
+
+    var model1 = new Enti({a:{b:{c:1}}}),
+        model2 = new Enti(model1._model.a.b);
+
+    model1.on('**.b.c', function(value){
+        t.equal(value, 2);
+    });
+
+    model2.set('c', 2);
+});
+
+tape('so many wildcarded deep events', function(t){
+    t.plan(1);
+
+    var model = {
+            a: {
+                b: {
+                    c: 1
+                }
+            }
+        };
+
+    var emits = 0;
+
+    var start = Date.now();
+
+    for(var i = 0; i < 10000; i++){
+        new Enti(model).on('**.c', function(){
+            emits++;
+        });
+    }
+
+    console.log('attach', Date.now() - start);
+
+    Enti.set(model, 'a.b.c', 2);
+
+    console.log('triggered', Date.now() - start);
+
+    t.equal(emits, 10000);
 });

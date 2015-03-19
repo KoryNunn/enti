@@ -1,26 +1,89 @@
 var EventEmitter = require('events').EventEmitter,
-    WM = require('./weakmap');
+    Set = require('es6-set');
 
 function toArray(items){
     return Array.prototype.slice.call(items);
 }
 
-var attachedEnties = new WM();
+function lastKey(path){
+    var match = path.match(/(?:.*\.)?([^.]*)$/);
+    return match && match[1];
+}
 
-function emit(model, key, value){
-    var references = attachedEnties.get(model);
+function matchDeep(path){
+    return path.match(/\./);
+}
 
-    if(!references || !references.length){
+var attachedEnties = new Set();
+
+function leftAndRest(path){
+    var match = matchDeep(path);
+    if(match){
+        return [path.slice(0, match.index), path.slice(match.index+1)];
+    }
+    return path;
+}
+
+function emitForEntiEvent(enti, model, target, event, path, key, value){
+    if(!target || typeof target !== 'object'){
         return;
     }
 
-    var toEmit = references.slice();
+    var path = leftAndRest(path);
 
-    for(var i = 0; i < toEmit.length; i++){
-        if(~references.indexOf(toEmit[i])){
-            toEmit[i].emit(key, value);
+    if(!Array.isArray(path)){
+        if(path === key && model === target){
+            enti.emit(event, value);
         }
+        return;
     }
+
+    var rootKey = path[0],
+        rest = path[1],
+        targetKey = lastKey(rest),
+        anyKey = rootKey.match(/^\*.?/),
+        anyDepth = rootKey.match(/^\*\*/);;
+
+    if(targetKey !== key){
+        return;
+    }
+
+    if(anyKey){
+        for(modelKey in target){
+            emitForEntiEvent(enti, model, target[modelKey], event, rest, key, value);
+            if(anyDepth){
+                emitForEntiEvent(enti, model, target[modelKey], event, rootKey + '.' + rest, key, value);
+            }
+        }
+        return;
+    }
+
+    if(rootKey in target){
+        emitForEntiEvent(enti, model, target[rootKey], event, rest, key, value);
+    }
+}
+
+function emitForEnti(enti, model, key, value){
+    if(!enti._events || !key){
+        return;
+    }
+
+    if(model === enti._model && key in enti._events){
+        enti.emit(key, value);
+        return;
+    }
+
+    var keys = Object.keys(enti._events);
+
+    for(var i = 0; i < keys.length; i++){
+        emitForEntiEvent(enti, model, enti._model, keys[i], keys[i], key, value);
+    }
+}
+
+function emit(model, key, value){
+    attachedEnties.forEach(function (enti) {
+        emitForEnti(enti, model, key, value);
+    });
 }
 
 function Enti(model){
@@ -31,12 +94,31 @@ function Enti(model){
     this.attach(model);
 }
 Enti.get = function(model, key){
+    if(!model || typeof model !== 'object'){
+        return;
+    }
+
     if(key === '.'){
         return model;
     }
+
+    var path = leftAndRest(key);
+    if(Array.isArray(path)){
+        return Enti.get(model[path[0]], path[1]);
+    }
+
     return model[key];
 };
 Enti.set = function(model, key, value){
+    if(!model || typeof model !== 'object'){
+        return;
+    }
+
+    var path = leftAndRest(key);
+    if(Array.isArray(path)){
+        return Enti.set(model[path[0]], path[1], value);
+    }
+
     var original = model[key];
 
     if(typeof value !== 'object' && value === original){
@@ -57,12 +139,21 @@ Enti.set = function(model, key, value){
     }
 };
 Enti.push = function(model, key, value){
+    if(!model || typeof model !== 'object'){
+        return;
+    }
+
     var target;
     if(arguments.length < 3){
         value = key;
         key = '.';
         target = model;
     }else{
+        var path = leftAndRest(key);
+        if(Array.isArray(path)){
+            return Enti.push(model[path[0]], path[1], value);
+        }
+
         target = model[key];
     }
 
@@ -79,6 +170,11 @@ Enti.push = function(model, key, value){
     emit(target, '*', target);
 };
 Enti.insert = function(model, key, value, index){
+    if(!model || typeof model !== 'object'){
+        return;
+    }
+
+
     var target;
     if(arguments.length < 4){
         index = value;
@@ -86,6 +182,11 @@ Enti.insert = function(model, key, value, index){
         key = '.';
         target = model;
     }else{
+        var path = leftAndRest(key);
+        if(Array.isArray(path)){
+            return Enti.insert(model[path[0]], path[1], value, index);
+        }
+
         target = model[key];
     }
 
@@ -102,6 +203,15 @@ Enti.insert = function(model, key, value, index){
     emit(target, '*', target);
 };
 Enti.remove = function(model, key, subKey){
+    if(!model || typeof model !== 'object'){
+        return;
+    }
+
+    var path = leftAndRest(key);
+    if(Array.isArray(path)){
+        return Enti.remove(model[path[0]], path[1], subKey);
+    }
+    
     // Remove a key off of an object at 'key'
     if(subKey != null){
         new Enti.remove(model[key], subKey);
@@ -122,6 +232,15 @@ Enti.remove = function(model, key, subKey){
     emit(model, '*', model);
 };
 Enti.move = function(model, key, index){
+    if(!model || typeof model !== 'object'){
+        return;
+    }
+
+    var path = leftAndRest(key);
+    if(Array.isArray(path)){
+        return Enti.move(model[path[0]], path[1], index);
+    }
+    
     var model = model;
 
     if(key === index){
@@ -141,6 +260,10 @@ Enti.move = function(model, key, index){
     emit(model, '*', model);
 };
 Enti.update = function(model, key, value){
+    if(!model || typeof model !== 'object'){
+        return;
+    }
+    
     var target,
         isArray = Array.isArray(value);
 
@@ -149,6 +272,11 @@ Enti.update = function(model, key, value){
         key = '.';
         target = model;
     }else{
+        var path = leftAndRest(key);
+        if(Array.isArray(path)){
+            return Enti.update(model[path[0]], path[1], value);
+        }
+
         target = model[key];
 
         if(target == null){
@@ -177,38 +305,15 @@ Enti.update = function(model, key, value){
 };
 Enti.prototype = Object.create(EventEmitter.prototype);
 Enti.prototype.constructor = Enti;
-Enti.prototype.attach = function(model){
-    
+Enti.prototype.attach = function(model){    
     this.detach();
-
-    var references = attachedEnties.get(model);
-
-
-    if(!references){
-        references = [];
-        attachedEnties.set(model, references);
-    }
-
-
-    references.push(this);
+    attachedEnties.add(this);
 
     this._model = model;
 };
 Enti.prototype.detach = function(){
-    if(!this._model){
-        return;
-    }
-
-    var references = attachedEnties.get(this._model);
-
-    if(!references){
-        return;
-    }
-
-    references.splice(references.indexOf(this),1);
-
-    if(!references.length){
-        attachedEnties.delete(this._model);
+    if(attachedEnties.has(this)){
+        attachedEnties.delete(this);
     }
 
     this._model = {};

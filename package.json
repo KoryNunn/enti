@@ -15,6 +15,7 @@
   "dependencies": {
     "clone": "^0.1.18",
     "deep-equal": "^0.2.1",
+    "es6-set": "^0.1.1",
     "flat-merge": "^1.0.0",
     "leak-map": "^1.0.2",
     "weak-map": "^1.0.5"
