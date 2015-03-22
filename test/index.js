@@ -42,8 +42,6 @@ tape('events own keys modified', function(t){
     });
 
     model.set('a', 1);
-
-    model.set('a', 2);
 });
 
 tape('shared events', function(t){
@@ -80,7 +78,7 @@ tape('swapped reference', function(t){
 });
 
 tape('push', function(t){
-    t.plan(2);
+    t.plan(4);
 
     var object = {
             items: []
@@ -108,7 +106,7 @@ tape('push', function(t){
 });
 
 tape('push self', function(t){
-    t.plan(2);
+    t.plan(4);
 
     var object = [],
         model = new Enti(object);
@@ -128,7 +126,7 @@ tape('push self', function(t){
 });
 
 tape('insert', function(t){
-    t.plan(2);
+    t.plan(4);
 
     var object = {
             items: [1,2,3]
@@ -194,7 +192,7 @@ tape('remove', function(t){
 });
 
 tape('update', function(t){
-    t.plan(2);
+    t.plan(5);
 
     var object = {},
         model1 = new Enti(object);
@@ -320,8 +318,8 @@ tape('deep events wildcard', function(t){
     var model1 = new Enti({a:{b:1}}),
         model2 = new Enti(model1._model.a);
 
-    model1.on('*.b', function(value){
-        t.equal(value, 2);
+    model1.on('*.b', function(){
+        t.pass();
     });
 
     model2.set('b', 2);
@@ -334,20 +332,20 @@ tape('any depth events wildcard', function(t){
         model2 = new Enti(model1._model.a.b);
 
     model1.on('**.c', function(value){
-        t.equal(value, 2);
+        t.pass();
     });
 
     model2.set('c', 2);
 });
 
-tape('any depth events wildcard', function(t){
+tape('any depth events wildcard deeper', function(t){
     t.plan(1);
 
     var model1 = new Enti({a:{b:{c:1}}}),
         model2 = new Enti(model1._model.a.b);
 
     model1.on('**.b.c', function(value){
-        t.equal(value, 2);
+        t.pass();
     });
 
     model2.set('c', 2);
@@ -381,4 +379,19 @@ tape('so many wildcarded deep events', function(t){
     console.log('triggered', Date.now() - start);
 
     t.equal(emits, 10000);
+});
+
+tape('deep events', function(t){
+    t.plan(1);
+
+    var model1 = new Enti({a:{b:1}}),
+        model2 = new Enti(model1._model.a);
+
+    model1.on('a.b.c', function(value){
+        t.equal(value, 2);
+    });
+
+    model2.set('b', {
+        c:2
+    });
 });

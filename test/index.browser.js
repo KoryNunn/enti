@@ -7,11 +7,13 @@ function toArray(items){
 }
 
 function lastKey(path){
+    path+='';
     var match = path.match(/(?:.*\.)?([^.]*)$/);
     return match && match[1];
 }
 
 function matchDeep(path){
+    path+='';
     return path.match(/\./);
 }
 
@@ -25,59 +27,84 @@ function leftAndRest(path){
     return path;
 }
 
-function emitForEntiEvent(enti, model, target, event, path, key, value){
+function isWildcardKey(key){
+    return key.charAt(0) === '*';
+}
+
+function isFeralcardKey(key){
+    return key === '**';
+}
+
+function emitForEventKey(enti, model, target, eventName, current, rest, key, value){
     if(!target || typeof target !== 'object'){
         return;
     }
 
-    var path = leftAndRest(path);
+    if(target !== model){
+        return;
+    }
 
-    if(!Array.isArray(path)){
-        if(path === key && model === target){
-            enti.emit(event, value);
+    if(isWildcardKey(current)){
+        enti.emit(eventName, target);
+        return true;
+    }
+
+    if(current === key){
+        enti.emit(eventName, enti.get(eventName === '*' ? '.' : eventName));
+        return true;
+    }
+}
+
+function emitForEventName(enti, model, eventName, key, value, lastTarget, rest){
+    var target = lastTarget;
+        
+    if(arguments.length === 7 && !rest){
+        return;
+    }
+
+    var keyIndex = -1;
+
+    while(++keyIndex < rest.length){
+        if(!target || typeof target !== 'object'){
+            return;
         }
-        return;
-    }
 
-    var rootKey = path[0],
-        rest = path[1],
-        targetKey = lastKey(rest),
-        anyKey = rootKey.match(/^\*.?/),
-        anyDepth = rootKey.match(/^\*\*/);;
+        var current = rest[keyIndex];
 
-    if(targetKey !== key){
-        return;
-    }
-
-    if(anyKey){
-        for(modelKey in target){
-            emitForEntiEvent(enti, model, target[modelKey], event, rest, key, value);
-            if(anyDepth){
-                emitForEntiEvent(enti, model, target[modelKey], event, rootKey + '.' + rest, key, value);
+        if(isWildcardKey(current)){
+            var wildcardKeys = Object.keys(target);
+            for(var i = 0; i < wildcardKeys.length; i++){
+                if(emitForEventName(enti, model, eventName, key, value, target[wildcardKeys[i]], rest.slice(keyIndex+1))){
+                    return true;
+                }
+                if(isFeralcardKey(current)){
+                    if(emitForEventName(enti, model, eventName, key, value, target[wildcardKeys[i]], ['**'].concat(rest.slice(keyIndex+1)))){
+                        return true;
+                    }
+                }
             }
         }
-        return;
-    }
 
-    if(rootKey in target){
-        emitForEntiEvent(enti, model, target[rootKey], event, rest, key, value);
+        if(emitForEventKey(enti, model, target, eventName, current, rest.slice(keyIndex+1), key, value)){
+            return true;
+        }
+
+        target = target[current];
     }
 }
 
 function emitForEnti(enti, model, key, value){
-    if(!enti._events || !key){
+    if(!enti._events){
         return;
     }
 
-    if(model === enti._model && key in enti._events){
-        enti.emit(key, value);
-        return;
-    }
+    var eventNames = Object.keys(enti._events);
 
-    var keys = Object.keys(enti._events);
-
-    for(var i = 0; i < keys.length; i++){
-        emitForEntiEvent(enti, model, enti._model, keys[i], keys[i], key, value);
+    for(var i = 0; i < eventNames.length; i++){
+        if(!eventNames[i].match(/[*.]/) && model !== enti._model){
+            continue;
+        }
+        emitForEventName(enti, model, eventNames[i], key, value, enti._model, eventNames[i].split('.'));
     }
 }
 
@@ -133,7 +160,6 @@ Enti.set = function(model, key, value){
     emit(model, key, value);
 
     if(keysChanged){
-        emit(model, '*', model);
         if(Array.isArray(model)){
             emit(model, 'length', model.length);
         }
@@ -167,8 +193,6 @@ Enti.push = function(model, key, value){
     emit(target, target.length-1, value);
 
     emit(target, 'length', target.length);
-
-    emit(target, '*', target);
 };
 Enti.insert = function(model, key, value, index){
     if(!model || typeof model !== 'object'){
@@ -200,8 +224,6 @@ Enti.insert = function(model, key, value, index){
     emit(target, index, value);
 
     emit(target, 'length', target.length);
-
-    emit(target, '*', target);
 };
 Enti.remove = function(model, key, subKey){
     if(!model || typeof model !== 'object'){
@@ -228,9 +250,8 @@ Enti.remove = function(model, key, subKey){
         emit(model, 'length', model.length);
     }else{
         delete model[key];
+        emit(model, key);
     }
-
-    emit(model, '*', model);
 };
 Enti.move = function(model, key, index){
     if(!model || typeof model !== 'object'){
@@ -301,8 +322,6 @@ Enti.update = function(model, key, value){
     if(isArray){
         emit(target, 'length', target.length);
     }
-
-    emit(target, '*', target);
 };
 Enti.prototype = Object.create(EventEmitter.prototype);
 Enti.prototype.constructor = Enti;
@@ -2992,8 +3011,6 @@ tape('events own keys modified', function(t){
     });
 
     model.set('a', 1);
-
-    model.set('a', 2);
 });
 
 tape('shared events', function(t){
@@ -3030,7 +3047,7 @@ tape('swapped reference', function(t){
 });
 
 tape('push', function(t){
-    t.plan(2);
+    t.plan(4);
 
     var object = {
             items: []
@@ -3058,7 +3075,7 @@ tape('push', function(t){
 });
 
 tape('push self', function(t){
-    t.plan(2);
+    t.plan(4);
 
     var object = [],
         model = new Enti(object);
@@ -3078,7 +3095,7 @@ tape('push self', function(t){
 });
 
 tape('insert', function(t){
-    t.plan(2);
+    t.plan(4);
 
     var object = {
             items: [1,2,3]
@@ -3144,7 +3161,7 @@ tape('remove', function(t){
 });
 
 tape('update', function(t){
-    t.plan(2);
+    t.plan(5);
 
     var object = {},
         model1 = new Enti(object);
@@ -3270,8 +3287,8 @@ tape('deep events wildcard', function(t){
     var model1 = new Enti({a:{b:1}}),
         model2 = new Enti(model1._model.a);
 
-    model1.on('*.b', function(value){
-        t.equal(value, 2);
+    model1.on('*.b', function(){
+        t.pass();
     });
 
     model2.set('b', 2);
@@ -3284,20 +3301,20 @@ tape('any depth events wildcard', function(t){
         model2 = new Enti(model1._model.a.b);
 
     model1.on('**.c', function(value){
-        t.equal(value, 2);
+        t.pass();
     });
 
     model2.set('c', 2);
 });
 
-tape('any depth events wildcard', function(t){
+tape('any depth events wildcard deeper', function(t){
     t.plan(1);
 
     var model1 = new Enti({a:{b:{c:1}}}),
         model2 = new Enti(model1._model.a.b);
 
     model1.on('**.b.c', function(value){
-        t.equal(value, 2);
+        t.pass();
     });
 
     model2.set('c', 2);
@@ -3331,6 +3348,21 @@ tape('so many wildcarded deep events', function(t){
     console.log('triggered', Date.now() - start);
 
     t.equal(emits, 10000);
+});
+
+tape('deep events', function(t){
+    t.plan(1);
+
+    var model1 = new Enti({a:{b:1}}),
+        model2 = new Enti(model1._model.a);
+
+    model1.on('a.b.c', function(value){
+        t.equal(value, 2);
+    });
+
+    model2.set('b', {
+        c:2
+    });
 });
 },{"../":"/home/kory/dev/enti/index.js","tape":"/home/kory/dev/enti/node_modules/tape/index.js"}],"/usr/lib/node_modules/watchify/node_modules/browserify/lib/_empty.js":[function(require,module,exports){
 
