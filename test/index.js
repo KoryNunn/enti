@@ -23,9 +23,9 @@ tape('events', function(t){
 
     var model = new Enti({});
 
-    model.on('a', function(value, previous){
+    model.on('a', function(value, event){
         t.equal(value, 1);
-        t.equal(previous, undefined);
+        t.equal(event.key, 'a');
     });
 
     model.set('a', 1);
@@ -36,9 +36,9 @@ tape('events own keys modified', function(t){
 
     var model = new Enti({});
 
-    model.on('*', function(value, previous){
-        t.deepEqual(value, {a:1});
-        t.equal(previous, undefined);
+    model.on('*', function(value, event){
+        t.equal(value, 1);
+        t.equal(event.key, 'a');
     });
 
     model.set('a', 1);
@@ -51,9 +51,9 @@ tape('shared events', function(t){
         model1 = new Enti(object),
         model2 = new Enti(object);
 
-    model1.on('a', function(value, previous){
+    model1.on('a', function(value, event){
         t.equal(value, 1);
-        t.equal(previous, undefined);
+        t.equal(event.key, 'a');
     });
 
     model2.set('a', 1);
@@ -67,9 +67,9 @@ tape('swapped reference', function(t){
         model1 = new Enti(object1),
         model2 = new Enti(object2);
 
-    model1.on('a', function(value, previous){
+    model1.on('a', function(value, event){
         t.equal(value, 1);
-        t.equal(previous, undefined);
+        t.equal(event.key, 'a');
     });
 
     model1.attach(object2);
@@ -78,7 +78,7 @@ tape('swapped reference', function(t){
 });
 
 tape('push', function(t){
-    t.plan(4);
+    t.plan(2);
 
     var object = {
             items: []
@@ -86,17 +86,17 @@ tape('push', function(t){
         model = new Enti(object),
         itemsModel = new Enti(object.items);
 
-    itemsModel.on('*', function(value, previous){
-        t.deepEqual(value, [5]);
-        t.equal(previous, undefined);
+    itemsModel.on('*', function(value, event){
+        t.deepEqual(value, 5);
+        t.equal(event.key, 0);
     });
-    model.on('items', function(value, previous){
+    model.on('items', function(value, event){
         t.fail();
     });
-    model.on('*', function(value, previous){
+    model.on('*', function(value, event){
         t.fail();
     });
-    model.on('0', function(value, previous){
+    model.on('0', function(value, event){
         t.fail();
     });
 
@@ -111,13 +111,13 @@ tape('push self', function(t){
     var object = [],
         model = new Enti(object);
 
-    model.on('*', function(value, previous){
-        t.deepEqual(value, [5]);
-        t.equal(previous, undefined);
-    });
-    model.on('0', function(value, previous){
+    model.on('*', function(value, event){
         t.deepEqual(value, 5);
-        t.equal(previous, undefined);
+        t.equal(event.key, 0);
+    });
+    model.on('0', function(value, event){
+        t.deepEqual(value, 5);
+        t.equal(event.key, 0);
     });
 
     model.attach(object);
@@ -126,7 +126,7 @@ tape('push self', function(t){
 });
 
 tape('insert', function(t){
-    t.plan(4);
+    t.plan(2);
 
     var object = {
             items: [1,2,3]
@@ -134,17 +134,17 @@ tape('insert', function(t){
         model = new Enti(object),
         itemsModel = new Enti(object.items);
 
-    itemsModel.on('*', function(value, previous){
-        t.deepEqual(value, [1, 5, 2, 3]);
-        t.equal(previous, undefined);
+    itemsModel.on('*', function(value, event){
+        t.deepEqual(value, 5);
+        t.equal(event.key, 1);
     });
-    model.on('items', function(value, previous){
+    model.on('items', function(value, event){
         t.fail();
     });
-    model.on('*', function(value, previous){
+    model.on('*', function(value, event){
         t.fail();
     });
-    model.on('1', function(value, previous){
+    model.on('1', function(value, event){
         t.fail();
     });
 
@@ -159,13 +159,13 @@ tape('insert self', function(t){
     var object = [1,2,3],
         model = new Enti(object);
 
-    model.on('*', function(value, previous){
-        t.deepEqual(value, [1, 5, 2, 3]);
-        t.equal(previous, undefined);
-    });
-    model.on('1', function(value, previous){
+    model.on('*', function(value, event){
         t.deepEqual(value, 5);
-        t.equal(previous, undefined);
+        t.equal(event.key, 1);
+    });
+    model.on('1', function(value, event){
+        t.deepEqual(value, 5);
+        t.equal(event.key, 1);
     });
 
     model.attach(object);
@@ -174,15 +174,16 @@ tape('insert self', function(t){
 });
 
 tape('remove', function(t){
-    t.plan(2);
+    t.plan(3);
 
     var object = [1,2,3],
         model = new Enti(object);
 
-    model.on('*', function(value){
-        t.deepEqual(value, [1,3]);
+    model.on('*', function(value, event){
+        t.equal(value, 2);
+        t.equal(event.key, 'length');
     });
-    model.on('length', function(value){
+    model.on('length', function(value, event){
         t.equal(value, 2);
     });
 
@@ -192,16 +193,16 @@ tape('remove', function(t){
 });
 
 tape('update', function(t){
-    t.plan(5);
+    t.plan(2);
 
     var object = {},
         model1 = new Enti(object);
 
-    model1.on('*', function(value){
+    model1.on('*', function(value, event){
         t.pass('model1 emitted');
     }).attach(object);
 
-    model1.on('a', function(value){
+    model1.on('a', function(value, event){
         t.pass('model1 emitted');
     }).attach(object);
 
@@ -220,31 +221,31 @@ tape('detach during event', function(t){
         model1 = new Enti(object);
         model2 = new Enti(object);
 
-    model1.on('foo', function(value){
+    model1.on('foo', function(value, event){
         t.pass('model1 emitted');
         model1.detach();
     }).attach(object);
 
-    model2.on('foo', function(value){
+    model2.on('foo', function(value, event){
         t.pass('model2 emitted');
     }).attach(object);
 
     model1.set('foo', 1);
 });
 
-tape('detach other during event', function(t){
+tape.only('detach other during event', function(t){
     t.plan(1);
 
     var object = {},
         model1 = new Enti(object);
         model2 = new Enti(object);
 
-    model1.on('foo', function(value){
+    model1.on('foo', function(value, event){
         t.pass('model1 emitted');
         model2.detach();
     }).attach(object);
 
-    model2.on('foo', function(value){
+    model2.on('foo', function(value, event){
         t.pass('model2 emitted');
     }).attach(object);
 
@@ -275,7 +276,7 @@ tape('deep events', function(t){
     var model1 = new Enti({a:{b:1}}),
         model2 = new Enti(model1._model.a);
 
-    model1.on('a.b', function(value){
+    model1.on('a.b', function(value, event){
         t.equal(value, 2);
     });
 
@@ -331,7 +332,7 @@ tape('any depth events wildcard', function(t){
     var model1 = new Enti({a:{b:{c:1}}}),
         model2 = new Enti(model1._model.a.b);
 
-    model1.on('**.c', function(value){
+    model1.on('**.c', function(value, event){
         t.pass();
     });
 
@@ -344,7 +345,7 @@ tape('any depth events wildcard deeper', function(t){
     var model1 = new Enti({a:{b:{c:1}}}),
         model2 = new Enti(model1._model.a.b);
 
-    model1.on('**.b.c', function(value){
+    model1.on('**.b.c', function(value, event){
         t.pass();
     });
 
@@ -386,12 +387,17 @@ tape('deep events', function(t){
 
     var model1 = new Enti({a:{b:1}}),
         model2 = new Enti(model1._model.a);
+        model3 = new Enti(model1._model.a.b);
 
-    model1.on('a.b.c', function(value){
-        t.equal(value, 2);
+    model1.on('a.b.c', function(value, event){
+        t.deepEqual(value, {
+            c:2
+        });
     });
 
     model2.set('b', {
         c:2
     });
+
+    model3.set('c', 4);
 });
