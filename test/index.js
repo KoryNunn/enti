@@ -31,6 +31,30 @@ tape('events', function(t){
     model.set('a', 1);
 });
 
+tape('so many events', function(t){
+    t.plan(1);
+
+    var model = {};
+
+    var emits = 0;
+
+    var start = Date.now();
+
+    for(var i = 0; i < 10000; i++){
+        new Enti(model).on('a', function(){
+            emits++;
+        });
+    }
+
+    console.log('attach', Date.now() - start);
+
+    Enti.set(model, 'a', 2);
+
+    console.log('triggered', Date.now() - start);
+
+    t.equal(emits, 10000);
+});
+
 tape('events own keys modified', function(t){
     t.plan(2);
 
@@ -233,7 +257,7 @@ tape('detach during event', function(t){
     model1.set('foo', 1);
 });
 
-tape.only('detach other during event', function(t){
+tape('detach other during event', function(t){
     t.plan(1);
 
     var object = {},
@@ -380,6 +404,36 @@ tape('so many wildcarded deep events', function(t){
     console.log('triggered', Date.now() - start);
 
     t.equal(emits, 10000);
+});
+
+tape('wildcarded deep events with so many objects', function(t){
+    t.plan(1);
+
+    var model = {};
+
+    for(var i = 0; i < 10000; i++){
+        model[i] = {
+            b: {
+                c: 1
+            }
+        };
+    }
+
+    var emits = 0;
+
+    var start = Date.now();
+
+    new Enti(model).on('**.c', function(){
+        emits++;
+    });
+
+    console.log('attach', Date.now() - start);
+
+    Enti.set(model, '1.b.c', 2);
+
+    console.log('triggered', Date.now() - start);
+
+    t.equal(emits, 1);
 });
 
 tape('deep events', function(t){

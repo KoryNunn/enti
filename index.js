@@ -51,10 +51,6 @@ function addHandler(object, key, handler){
         trackedKeys[key] = handlers;
     }
 
-    if(handlers.has(handler)){
-        return;
-    }
-
     handlers.add(handler);
 }
 
@@ -70,15 +66,11 @@ function removeHandler(object, key, handler){
     if(!handlers){
         return;
     }
-
-    if(!handlers.has(handler)){
-        return;
-    }
     
     handlers.delete(handler);
 }
 
-function trackObjects(set, handler, object, key, path){
+function trackObjects(enti, eventName, set, handler, object, key, path){
     if(!object || typeof object !== 'object'){
         return;
     }
@@ -86,22 +78,25 @@ function trackObjects(set, handler, object, key, path){
     var target = object[key],
         targetIsObject = target && typeof target === 'object';
 
-    if(targetIsObject && set.has(target)){
+    if(set.has(target)){
         return;
     }
 
-    function handle(value, event, emitKey){
-        if(targetIsObject){
-            if(object[key] !== target){
-                set.delete(target);
-                removeHandler(object, key, handle);
-                return;
-            }
-
-            trackObjects(set, handler, object, key, path);
+    var handle = function(value, event, emitKey){
+        if(object[key] !== target){
+            set.delete(target);
+            removeHandler(object, key, handle);
+            trackObjects(enti, eventName, set, handler, object, key, path);
+            return;
         }
 
-        if(!set.has(event.object)){
+        if(enti._trackedObjects[eventName] !== set){
+            set.delete(target);
+            removeHandler(object, key, handle);
+            return;
+        }
+
+        if(!set.has(object)){
             return;
         }
 
@@ -133,14 +128,15 @@ function trackObjects(set, handler, object, key, path){
 
     if(isWildcardKey(root)){
         for(var key in target){
-            trackObjects(set, handler, target, key, rest);
             if(isFeralcardKey(root)){
-                trackObjects(set, handler, target, key, '**' + (rest ? '.' : '') + rest);
+                trackObjects(enti, eventName, set, handler, target, key, '**' + (rest ? '.' : '') + rest);
+            }else{
+                trackObjects(enti, eventName, set, handler, target, key, rest);
             }
         }
     }
 
-    trackObjects(set, handler, target, root, rest);
+    trackObjects(enti, eventName, set, handler, target, root, rest);
 }
 
 function trackPath(enti, eventName){
@@ -159,7 +155,7 @@ function trackPath(enti, eventName){
         enti.emit(eventName, value, event);
     }
 
-    trackObjects(entiTrackedObjects, handler, enti, '_model', eventName);
+    trackObjects(enti, eventName, entiTrackedObjects, handler, enti, '_model', eventName);
 }
 
 function trackPaths(enti){
@@ -171,14 +167,6 @@ function trackPaths(enti){
 
     for(var i = 0; i < eventNames.length; i++){
         trackPath(enti, eventNames[i]);
-    }
-
-    var tracketObjectPaths = Object.keys(enti._trackedObjects);
-
-    for(var i = 0; i < tracketObjectPaths.length; i++){
-        if(!tracketObjectPaths[i] in enti._events){
-            delete enti._trackedObjects[tracketObjectPaths[i]];
-        }
     }
 }
 
@@ -463,7 +451,9 @@ Enti.prototype.detach = function(){
     if(attachedEnties.has(this)){
         attachedEnties.delete(this);
     }
-
+        
+    this._trackedObjects = {};
+    this._emittedEvents = {};
     this._model = {};
 };
 Enti.prototype.get = function(key){
