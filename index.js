@@ -66,7 +66,7 @@ function removeHandler(object, key, handler){
     if(!handlers){
         return;
     }
-    
+
     handlers.delete(handler);
 }
 
@@ -127,11 +127,11 @@ function trackObjects(enti, eventName, set, handler, object, key, path){
     }
 
     if(isWildcardKey(root)){
-        for(var key in target){
+        for(var propertyName in target){
             if(isFeralcardKey(root)){
-                trackObjects(enti, eventName, set, handler, target, key, '**' + (rest ? '.' : '') + rest);
+                trackObjects(enti, eventName, set, handler, target, propertyName, '**' + (rest ? '.' : '') + rest);
             }else{
-                trackObjects(enti, eventName, set, handler, target, key, rest);
+                trackObjects(enti, eventName, set, handler, target, propertyName, rest);
             }
         }
     }
@@ -216,7 +216,7 @@ function Enti(model){
     if(!model || (typeof model !== 'object' && typeof model !== 'function')){
         model = {};
     }
-        
+
     this._trackedObjects = {};
     this._emittedEvents = {};
     this.attach(model);
@@ -342,7 +342,7 @@ Enti.remove = function(model, key, subKey){
     if(Array.isArray(path)){
         return Enti.remove(model[path[0]], path[1], subKey);
     }
-    
+
     // Remove a key off of an object at 'key'
     if(subKey != null){
         new Enti.remove(model[key], subKey);
@@ -374,7 +374,7 @@ Enti.move = function(model, key, index){
     if(Array.isArray(path)){
         return Enti.move(model[path[0]], path[1], index);
     }
-    
+
     var model = model;
 
     if(key === index){
@@ -397,7 +397,7 @@ Enti.update = function(model, key, value){
     if(!model || typeof model !== 'object'){
         return;
     }
-    
+
     var target,
         isArray = Array.isArray(value);
 
@@ -432,7 +432,7 @@ Enti.update = function(model, key, value){
         target[key] = value[key];
         events.push([key, value[key]]);
     }
-    
+
     if(isArray){
         events.push(['length', target.length]);
     }
@@ -441,7 +441,7 @@ Enti.update = function(model, key, value){
 };
 Enti.prototype = Object.create(EventEmitter.prototype);
 Enti.prototype.constructor = Enti;
-Enti.prototype.attach = function(model){    
+Enti.prototype.attach = function(model){
     this.detach();
     attachedEnties.add(this);
 
@@ -451,7 +451,7 @@ Enti.prototype.detach = function(){
     if(attachedEnties.has(this)){
         attachedEnties.delete(this);
     }
-        
+
     this._trackedObjects = {};
     this._emittedEvents = {};
     this._model = {};
