@@ -33,6 +33,39 @@ model2.on('foo', function(foo){
 model1.set('foo', 'baz'); // sent into a different Enti, triggers events for all enti's
 ```
 
+And you can use wildcards to watch for events:
+
+Single level:
+```
+model1.on('*', function(foo){
+    // object.<anything> changed. do something.
+});
+
+model1.set('foo', 'baz');
+```
+
+Any level:
+```
+model1.on('**', function(foo){
+    // object.<anything>.<anything>.<anything>.<etc...> changed. do something.
+});
+
+model1.set('foo', 'baz');
+```
+
+Which can be combined with other keys:
+
+
+```
+model1.on('foo.*.bar', function(foo){
+    // object.foo.<anything>.bar changed. do something.
+});
+
+model1.set('foo', 'baz', {
+    bar:1
+});
+```
+
 ## API
 
 ### .get(key)
@@ -60,16 +93,3 @@ You can get the currently attached object using `'.'`
 model1.get('.') // -> object
 
 ```
-
-## When events are fired
-
-```javsacript
-
-var object = {},
-    model = new Enti(object);
-
-model.set('a', 1); // Triggers 'a', and '*'.
-
-model.set('a', 2); // Triggers 'a', but not '*', since no keys changed.
-
-model.set('b', 1); // Triggers 'b', and '*'

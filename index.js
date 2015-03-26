@@ -75,7 +75,8 @@ function trackObjects(enti, eventName, set, handler, object, key, path){
         return;
     }
 
-    var target = object[key],
+    var eventKey = key === '**' ? '*' : key,
+        target = object[key],
         targetIsObject = target && typeof target === 'object';
 
     if(set.has(target)){
@@ -83,16 +84,16 @@ function trackObjects(enti, eventName, set, handler, object, key, path){
     }
 
     var handle = function(value, event, emitKey){
-        if(object[key] !== target){
+        if(targetIsObject && object[key] !== target){
             set.delete(target);
-            removeHandler(object, key, handle);
+            removeHandler(object, eventKey, handle);
             trackObjects(enti, eventName, set, handler, object, key, path);
             return;
         }
 
         if(enti._trackedObjects[eventName] !== set){
             set.delete(target);
-            removeHandler(object, key, handle);
+            removeHandler(object, eventKey, handle);
             return;
         }
 
@@ -103,7 +104,7 @@ function trackObjects(enti, eventName, set, handler, object, key, path){
         handler(value, event, emitKey);
     }
 
-    addHandler(object, key, handle);
+    addHandler(object, eventKey, handle);
 
     if(!targetIsObject){
         return;

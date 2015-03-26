@@ -30,7 +30,7 @@ tape('events', function(t){
 
     model.set('a', 1);
 });
-
+/*
 tape('so many events', function(t){
     t.plan(1);
 
@@ -54,7 +54,7 @@ tape('so many events', function(t){
 
     t.equal(emits, 10000);
 });
-
+*/
 tape('events own keys modified', function(t){
     t.plan(2);
 
@@ -306,7 +306,7 @@ tape('deep events', function(t){
 
     model2.set('b', 2);
 });
-
+/*
 tape('so many deep events', function(t){
     t.plan(1);
 
@@ -336,7 +336,7 @@ tape('so many deep events', function(t){
 
     t.equal(emits, 10000);
 });
-
+*/
 tape('deep events wildcard', function(t){
     t.plan(1);
 
@@ -375,7 +375,7 @@ tape('any depth events wildcard deeper', function(t){
 
     model2.set('c', 2);
 });
-
+/*
 tape('so many wildcarded deep events', function(t){
     t.plan(1);
 
@@ -405,7 +405,8 @@ tape('so many wildcarded deep events', function(t){
 
     t.equal(emits, 10000);
 });
-
+*/
+/*
 tape('wildcarded deep events with so many objects', function(t){
     t.plan(1);
 
@@ -435,7 +436,7 @@ tape('wildcarded deep events with so many objects', function(t){
 
     t.equal(emits, 1);
 });
-
+*/
 tape('deep events', function(t){
     t.plan(1);
 
