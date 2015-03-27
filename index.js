@@ -130,7 +130,7 @@ function trackObjects(enti, eventName, set, handler, object, key, path){
     if(isWildcardKey(root)){
         for(var propertyName in target){
             if(isFeralcardKey(root)){
-                trackObjects(enti, eventName, set, handler, target, propertyName, '**' + (rest ? '.' : '') + rest);
+                trackObjects(enti, eventName, set, handler, target, propertyName, '**' + (rest ? '.' : '') + (rest || ''));
             }else{
                 trackObjects(enti, eventName, set, handler, target, propertyName, rest);
             }
