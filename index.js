@@ -70,7 +70,7 @@ function removeHandler(object, key, handler){
     handlers.delete(handler);
 }
 
-function trackObjects(enti, eventName, set, handler, object, key, path){
+function trackObjects(enti, eventName, weakMap, handler, object, key, path){
     if(!object || typeof object !== 'object'){
         return;
     }
@@ -79,25 +79,27 @@ function trackObjects(enti, eventName, set, handler, object, key, path){
         target = object[key],
         targetIsObject = target && typeof target === 'object';
 
-    if(set.has(target)){
+    if(targetIsObject && weakMap.has(target)){
         return;
     }
 
     var handle = function(value, event, emitKey){
         if(targetIsObject && object[key] !== target){
-            set.delete(target);
+            weakMap.delete(target);
             removeHandler(object, eventKey, handle);
-            trackObjects(enti, eventName, set, handler, object, key, path);
+            trackObjects(enti, eventName, weakMap, handler, object, key, path);
             return;
         }
 
-        if(enti._trackedObjects[eventName] !== set){
-            set.delete(target);
+        if(enti._trackedObjects[eventName] !== weakMap){
+            if(targetIsObject){
+                weakMap.delete(target);
+            }
             removeHandler(object, eventKey, handle);
             return;
         }
 
-        if(!set.has(object)){
+        if(!weakMap.has(object)){
             return;
         }
 
@@ -110,7 +112,10 @@ function trackObjects(enti, eventName, set, handler, object, key, path){
         return;
     }
 
-    set.add(target);
+    // This would obviously be better implemented with a WeakSet,
+    // But I'm trying to keep filesize down, and I don't really want another
+    // polyfill when WeakMap works well enough for the task.
+    weakMap.set(target, null);
 
     if(!path){
         return;
@@ -128,23 +133,27 @@ function trackObjects(enti, eventName, set, handler, object, key, path){
     }
 
     if(isWildcardKey(root)){
-        for(var propertyName in target){
-            if(isFeralcardKey(root)){
-                trackObjects(enti, eventName, set, handler, target, propertyName, '**' + (rest ? '.' : '') + (rest || ''));
-            }else{
-                trackObjects(enti, eventName, set, handler, target, propertyName, rest);
-            }
-        }
+        trackAllKeys(enti, eventName, weakMap, handler, target, root, rest);
     }
 
-    trackObjects(enti, eventName, set, handler, target, root, rest);
+    trackObjects(enti, eventName, weakMap, handler, target, root, rest);
+}
+
+function trackAllKeys(enti, eventName, weakMap, handler, target, root, rest){
+    for(var key in target){
+        if(isFeralcardKey(root)){
+            trackObjects(enti, eventName, weakMap, handler, target, key, '**' + (rest ? '.' : '') + (rest || ''));
+        }else{
+            trackObjects(enti, eventName, weakMap, handler, target, key, rest);
+        }
+    }
 }
 
 function trackPath(enti, eventName){
     var entiTrackedObjects = enti._trackedObjects[eventName];
 
     if(!entiTrackedObjects){
-        entiTrackedObjects = new Set();
+        entiTrackedObjects = new WeakMap();
         enti._trackedObjects[eventName] = entiTrackedObjects;
     }
 
