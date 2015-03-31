@@ -7,19 +7,17 @@
     "test": "test"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node test",
     "watch": "watchify test/index.js -o test/index.browser.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "clone": "^0.1.18",
-    "deep-equal": "^0.2.1",
+    "deep-equal": "^1.0.0",
     "es6-set": "^0.1.1",
     "es6-weak-map": "^0.1.2",
-    "flat-merge": "^1.0.0",
-    "leak-map": "^1.0.2",
-    "weak-map": "^1.0.5"
+    "flat-merge": "^1.0.0"
   },
   "devDependencies": {
     "tape": "^3.4.0"

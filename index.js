@@ -133,20 +133,17 @@ function trackObjects(enti, eventName, weakMap, handler, object, key, path){
     }
 
     if(isWildcardKey(root)){
-        trackAllKeys(enti, eventName, weakMap, handler, target, root, rest);
+        var keys = Object.keys(target);
+        for(var i = 0; i < keys.length; i++){
+            if(isFeralcardKey(root)){
+                trackObjects(enti, eventName, weakMap, handler, target, keys[i], '**' + (rest ? '.' : '') + (rest || ''));
+            }else{
+                trackObjects(enti, eventName, weakMap, handler, target, keys[i], rest);
+            }
+        }
     }
 
     trackObjects(enti, eventName, weakMap, handler, target, root, rest);
-}
-
-function trackAllKeys(enti, eventName, weakMap, handler, target, root, rest){
-    for(var key in target){
-        if(isFeralcardKey(root)){
-            trackObjects(enti, eventName, weakMap, handler, target, key, '**' + (rest ? '.' : '') + (rest || ''));
-        }else{
-            trackObjects(enti, eventName, weakMap, handler, target, key, rest);
-        }
-    }
 }
 
 function trackPath(enti, eventName){
@@ -182,9 +179,7 @@ function trackPaths(enti){
 
 function emitEvent(object, key, value, emitKey){
 
-    attachedEnties.forEach(function (enti) {
-        trackPaths(enti);
-    });
+    attachedEnties.forEach(trackPaths);
 
     var trackedKeys = trackedObjects.get(object);
 
