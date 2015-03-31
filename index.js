@@ -84,8 +84,10 @@ function trackObjects(enti, eventName, weakMap, handler, object, key, path){
     }
 
     var handle = function(value, event, emitKey){
-        if(targetIsObject && object[key] !== target){
-            weakMap.delete(target);
+        if(object[key] !== target){
+            if(targetIsObject){
+                weakMap.delete(target);
+            }
             removeHandler(object, eventKey, handle);
             trackObjects(enti, eventName, weakMap, handler, object, key, path);
             return;
