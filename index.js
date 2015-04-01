@@ -12,9 +12,14 @@ function lastKey(path){
     return match && match[1];
 }
 
+var dotRegex = /\./i;
+
 function matchDeep(path){
-    path+='';
-    return path.match(/\./);
+    return (path + '').match(dotRegex);
+}
+
+function isDeep(path){
+    return ~(path + '').indexOf('.');
 }
 
 var attachedEnties = new Set(),
@@ -167,21 +172,27 @@ function trackPath(enti, eventName){
     trackObjects(enti, eventName, entiTrackedObjects, handler, enti, '_model', eventName);
 }
 
-function trackPaths(enti){
+function trackPaths(enti, target){
     if(!enti._events){
         return;
     }
 
-    var eventNames = Object.keys(enti._events);
+    for(var key in enti._events){
+        // Bailout if the event is a single key,
+        // and the target isnt the same as the entis _model
+        if(enti._model !== target && !isDeep(key)){
+            continue;
+        }
 
-    for(var i = 0; i < eventNames.length; i++){
-        trackPath(enti, eventNames[i]);
+        trackPath(enti, key);
     }
 }
 
 function emitEvent(object, key, value, emitKey){
 
-    attachedEnties.forEach(trackPaths);
+    attachedEnties.forEach(function(enti){
+        trackPaths(enti, object);
+    });
 
     var trackedKeys = trackedObjects.get(object);
 
@@ -212,10 +223,10 @@ function emitEvent(object, key, value, emitKey){
     }
 }
 
-function emit(object, events){
+function emit(events){
     var emitKey = {};
     events.forEach(function(event){
-        emitEvent(object, event[0], event[1], emitKey);
+        emitEvent(event[0], event[1], event[2], emitKey);
     });
 }
 
@@ -264,15 +275,15 @@ Enti.set = function(model, key, value){
 
     model[key] = value;
 
-    var events = [[key, value]];
+    var events = [[model, key, value]];
 
     if(keysChanged){
         if(Array.isArray(model)){
-            events.push(['length', model.length]);
+            events.push([model, 'length', model.length]);
         }
     }
 
-    emit(model, events);
+    emit(events);
 };
 Enti.push = function(model, key, value){
     if(!model || typeof model !== 'object'){
@@ -300,11 +311,11 @@ Enti.push = function(model, key, value){
     target.push(value);
 
     var events = [
-        [target.length-1, value],
-        ['length', target.length]
+        [target, target.length-1, value],
+        [target, 'length', target.length]
     ];
 
-    emit(target, events);
+    emit(events);
 };
 Enti.insert = function(model, key, value, index){
     if(!model || typeof model !== 'object'){
@@ -334,11 +345,11 @@ Enti.insert = function(model, key, value, index){
     target.splice(index, 0, value);
 
     var events = [
-        [index, value],
-        ['length', target.length]
+        [target, index, value],
+        [target, 'length', target.length]
     ];
 
-    emit(target, events);
+    emit(events);
 };
 Enti.remove = function(model, key, subKey){
     if(!model || typeof model !== 'object'){
@@ -364,13 +375,13 @@ Enti.remove = function(model, key, subKey){
 
     if(Array.isArray(model)){
         model.splice(key, 1);
-        events.push(['length', model.length]);
+        events.push([model, 'length', model.length]);
     }else{
         delete model[key];
         events.push([model, key]);
     }
 
-    emit(model, events);
+    emit(events);
 };
 Enti.move = function(model, key, index){
     if(!model || typeof model !== 'object'){
@@ -398,7 +409,7 @@ Enti.move = function(model, key, index){
 
     model.splice(index - (index > key ? 0 : 1), 0, item);
 
-    emit(model, [index, item]);
+    emit([model, index, item]);
 };
 Enti.update = function(model, key, value){
     if(!model || typeof model !== 'object'){
@@ -435,16 +446,24 @@ Enti.update = function(model, key, value){
 
     var events = [];
 
-    for(var key in value){
-        target[key] = value[key];
-        events.push([key, value[key]]);
+    function updateTarget(target, value){
+        for(var key in value){
+            if(typeof target[key] === 'object'){
+                updateTarget(target[key], value[key]);
+                continue;
+            }
+            target[key] = value[key];
+            events.push([target, key, value[key]]);
+        }
+
+        if(Array.isArray(target)){
+            events.push([target, 'length', target.length]);
+        }
     }
 
-    if(isArray){
-        events.push(['length', target.length]);
-    }
+    updateTarget(target, value);
 
-    emit(target, events);
+    emit(events);
 };
 Enti.prototype = Object.create(EventEmitter.prototype);
 Enti.prototype.constructor = Enti;
@@ -463,6 +482,10 @@ Enti.prototype.detach = function(){
     this._emittedEvents = {};
     this._model = {};
 };
+Enti.prototype.destroy = function(){
+    this.detach();
+    this._events = null;
+}
 Enti.prototype.get = function(key){
     return Enti.get(this._model, key);
 };
