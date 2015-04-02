@@ -456,3 +456,15 @@ tape('deep events', function(t){
 
     model3.set('c', 4);
 });
+
+tape('nan target', function(t){
+    t.plan(1);
+
+    var model1 = new Enti({a:{b:{}}});
+
+    model1.on('a.b.*', function(value, event){
+        t.pass();
+    });
+
+    model1.set('a.b.c', NaN);
+});

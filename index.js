@@ -89,7 +89,7 @@ function trackObjects(enti, eventName, weakMap, handler, object, key, path){
     }
 
     var handle = function(value, event, emitKey){
-        if(object[key] !== target){
+        if(typeof object[key] === 'object' && object[key] !== target){
             if(targetIsObject){
                 weakMap.delete(target);
             }
@@ -139,7 +139,7 @@ function trackObjects(enti, eventName, weakMap, handler, object, key, path){
         rest = rootAndRest[1];
     }
 
-    if(isWildcardKey(root)){
+    if(targetIsObject && isWildcardKey(root)){
         var keys = Object.keys(target);
         for(var i = 0; i < keys.length; i++){
             if(isFeralcardKey(root)){
