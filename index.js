@@ -448,7 +448,7 @@ Enti.update = function(model, key, value){
 
     function updateTarget(target, value){
         for(var key in value){
-            if(typeof target[key] === 'object'){
+            if(target[key] && typeof target[key] === 'object'){
                 updateTarget(target[key], value[key]);
                 continue;
             }

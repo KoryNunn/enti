@@ -13,7 +13,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "clone": "^0.1.18",
     "deep-equal": "^1.0.0",
     "es6-set": "^0.1.1",
     "es6-weak-map": "^0.1.2",
