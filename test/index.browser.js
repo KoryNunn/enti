@@ -13,9 +13,14 @@ function lastKey(path){
     return match && match[1];
 }
 
+var dotRegex = /\./i;
+
 function matchDeep(path){
-    path+='';
-    return path.match(/\./);
+    return (path + '').match(dotRegex);
+}
+
+function isDeep(path){
+    return ~(path + '').indexOf('.');
 }
 
 var attachedEnties = new Set(),
@@ -71,7 +76,7 @@ function removeHandler(object, key, handler){
     handlers.delete(handler);
 }
 
-function trackObjects(enti, eventName, set, handler, object, key, path){
+function trackObjects(enti, eventName, weakMap, handler, object, key, path){
     if(!object || typeof object !== 'object'){
         return;
     }
@@ -80,29 +85,48 @@ function trackObjects(enti, eventName, set, handler, object, key, path){
         target = object[key],
         targetIsObject = target && typeof target === 'object';
 
-    if(set.has(target)){
+    if(targetIsObject && weakMap.has(target)){
         return;
     }
 
     var handle = function(value, event, emitKey){
-        if(targetIsObject && object[key] !== target){
-            set.delete(target);
-            removeHandler(object, eventKey, handle);
-            trackObjects(enti, eventName, set, handler, object, key, path);
-            return;
-        }
-
-        if(enti._trackedObjects[eventName] !== set){
-            set.delete(target);
+        if(enti._trackedObjects[eventName] !== weakMap){
+            if(targetIsObject){
+                weakMap.delete(target);
+            }
             removeHandler(object, eventKey, handle);
             return;
         }
 
-        if(!set.has(object)){
+        if(eventKey !== '*' && typeof object[eventKey] === 'object' && object[eventKey] !== target){
+            if(targetIsObject){
+                weakMap.delete(target);
+            }
+            removeHandler(object, eventKey, handle);
+            trackObjects(enti, eventName, weakMap, handler, object, key, path);
+            return;
+        }
+
+        if(eventKey === '*'){
+            trackKeys(object, key, path);
+        }
+
+        if(!weakMap.has(object)){
             return;
         }
 
         handler(value, event, emitKey);
+    }
+
+    function trackKeys(target, root, rest){
+        var keys = Object.keys(target);
+        for(var i = 0; i < keys.length; i++){
+            if(isFeralcardKey(root)){
+                trackObjects(enti, eventName, weakMap, handler, target, keys[i], '**' + (rest ? '.' : '') + (rest || ''));
+            }else{
+                trackObjects(enti, eventName, weakMap, handler, target, keys[i], rest);
+            }
+        }
     }
 
     addHandler(object, eventKey, handle);
@@ -111,7 +135,10 @@ function trackObjects(enti, eventName, set, handler, object, key, path){
         return;
     }
 
-    set.add(target);
+    // This would obviously be better implemented with a WeakSet,
+    // But I'm trying to keep filesize down, and I don't really want another
+    // polyfill when WeakMap works well enough for the task.
+    weakMap.set(target, null);
 
     if(!path){
         return;
@@ -128,24 +155,18 @@ function trackObjects(enti, eventName, set, handler, object, key, path){
         rest = rootAndRest[1];
     }
 
-    if(isWildcardKey(root)){
-        for(var propertyName in target){
-            if(isFeralcardKey(root)){
-                trackObjects(enti, eventName, set, handler, target, propertyName, '**' + (rest ? '.' : '') + rest);
-            }else{
-                trackObjects(enti, eventName, set, handler, target, propertyName, rest);
-            }
-        }
+    if(targetIsObject && isWildcardKey(root)){
+        trackKeys(target, root, rest);
     }
 
-    trackObjects(enti, eventName, set, handler, target, root, rest);
+    trackObjects(enti, eventName, weakMap, handler, target, root, rest);
 }
 
 function trackPath(enti, eventName){
     var entiTrackedObjects = enti._trackedObjects[eventName];
 
     if(!entiTrackedObjects){
-        entiTrackedObjects = new Set();
+        entiTrackedObjects = new WeakMap();
         enti._trackedObjects[eventName] = entiTrackedObjects;
     }
 
@@ -160,22 +181,26 @@ function trackPath(enti, eventName){
     trackObjects(enti, eventName, entiTrackedObjects, handler, enti, '_model', eventName);
 }
 
-function trackPaths(enti){
+function trackPaths(enti, target){
     if(!enti._events){
         return;
     }
 
-    var eventNames = Object.keys(enti._events);
+    for(var key in enti._events){
+        // Bailout if the event is a single key,
+        // and the target isnt the same as the entis _model
+        if(enti._model !== target && !isDeep(key)){
+            continue;
+        }
 
-    for(var i = 0; i < eventNames.length; i++){
-        trackPath(enti, eventNames[i]);
+        trackPath(enti, key);
     }
 }
 
 function emitEvent(object, key, value, emitKey){
 
-    attachedEnties.forEach(function (enti) {
-        trackPaths(enti);
+    attachedEnties.forEach(function(enti){
+        trackPaths(enti, object);
     });
 
     var trackedKeys = trackedObjects.get(object);
@@ -207,10 +232,10 @@ function emitEvent(object, key, value, emitKey){
     }
 }
 
-function emit(object, events){
+function emit(events){
     var emitKey = {};
     events.forEach(function(event){
-        emitEvent(object, event[0], event[1], emitKey);
+        emitEvent(event[0], event[1], event[2], emitKey);
     });
 }
 
@@ -259,15 +284,15 @@ Enti.set = function(model, key, value){
 
     model[key] = value;
 
-    var events = [[key, value]];
+    var events = [[model, key, value]];
 
     if(keysChanged){
         if(Array.isArray(model)){
-            events.push(['length', model.length]);
+            events.push([model, 'length', model.length]);
         }
     }
 
-    emit(model, events);
+    emit(events);
 };
 Enti.push = function(model, key, value){
     if(!model || typeof model !== 'object'){
@@ -295,11 +320,11 @@ Enti.push = function(model, key, value){
     target.push(value);
 
     var events = [
-        [target.length-1, value],
-        ['length', target.length]
+        [target, target.length-1, value],
+        [target, 'length', target.length]
     ];
 
-    emit(target, events);
+    emit(events);
 };
 Enti.insert = function(model, key, value, index){
     if(!model || typeof model !== 'object'){
@@ -329,11 +354,11 @@ Enti.insert = function(model, key, value, index){
     target.splice(index, 0, value);
 
     var events = [
-        [index, value],
-        ['length', target.length]
+        [target, index, value],
+        [target, 'length', target.length]
     ];
 
-    emit(target, events);
+    emit(events);
 };
 Enti.remove = function(model, key, subKey){
     if(!model || typeof model !== 'object'){
@@ -347,7 +372,7 @@ Enti.remove = function(model, key, subKey){
 
     // Remove a key off of an object at 'key'
     if(subKey != null){
-        new Enti.remove(model[key], subKey);
+        Enti.remove(model[key], subKey);
         return;
     }
 
@@ -359,13 +384,13 @@ Enti.remove = function(model, key, subKey){
 
     if(Array.isArray(model)){
         model.splice(key, 1);
-        events.push(['length', model.length]);
+        events.push([model, 'length', model.length]);
     }else{
         delete model[key];
         events.push([model, key]);
     }
 
-    emit(model, events);
+    emit(events);
 };
 Enti.move = function(model, key, index){
     if(!model || typeof model !== 'object'){
@@ -393,7 +418,7 @@ Enti.move = function(model, key, index){
 
     model.splice(index - (index > key ? 0 : 1), 0, item);
 
-    emit(model, [index, item]);
+    emit([model, index, item]);
 };
 Enti.update = function(model, key, value){
     if(!model || typeof model !== 'object'){
@@ -430,16 +455,24 @@ Enti.update = function(model, key, value){
 
     var events = [];
 
-    for(var key in value){
-        target[key] = value[key];
-        events.push([key, value[key]]);
+    function updateTarget(target, value){
+        for(var key in value){
+            if(target[key] && typeof target[key] === 'object'){
+                updateTarget(target[key], value[key]);
+                continue;
+            }
+            target[key] = value[key];
+            events.push([target, key, value[key]]);
+        }
+
+        if(Array.isArray(target)){
+            events.push([target, 'length', target.length]);
+        }
     }
 
-    if(isArray){
-        events.push(['length', target.length]);
-    }
+    updateTarget(target, value);
 
-    emit(target, events);
+    emit(events);
 };
 Enti.prototype = Object.create(EventEmitter.prototype);
 Enti.prototype.constructor = Enti;
@@ -458,6 +491,10 @@ Enti.prototype.detach = function(){
     this._emittedEvents = {};
     this._model = {};
 };
+Enti.prototype.destroy = function(){
+    this.detach();
+    this._events = null;
+}
 Enti.prototype.get = function(key){
     return Enti.get(this._model, key);
 };
@@ -581,7 +618,7 @@ function objEquiv(a, b, opts) {
     key = ka[i];
     if (!deepEqual(a[key], b[key], opts)) return false;
   }
-  return true;
+  return typeof a === typeof b;
 }
 
 },{"./lib/is_arguments.js":"/home/kory/dev/enti/node_modules/deep-equal/lib/is_arguments.js","./lib/keys.js":"/home/kory/dev/enti/node_modules/deep-equal/lib/keys.js"}],"/home/kory/dev/enti/node_modules/deep-equal/lib/is_arguments.js":[function(require,module,exports){
@@ -4583,6 +4620,42 @@ tape('deep events', function(t){
     });
 
     model3.set('c', 4);
+});
+
+tape('nan target', function(t){
+    t.plan(1);
+
+    var model1 = new Enti({a:{b:{}}});
+
+    model1.on('a.b.*', function(value, event){
+        t.pass();
+    });
+
+    model1.set('a.b.c', NaN);
+});
+
+tape('Late updates', function(t){
+    t.plan(3);
+
+    var data = {
+            data: {}
+        },
+        model1 = new Enti();
+
+    model1.on('data.*.*', function(value, event){
+        t.pass();
+    });
+
+    model1.attach(data);
+
+    Enti.set(model1._model.data, 'count', 0);
+
+    Enti.update(data, 'data', {
+        count: 1,
+        rows: [{}]
+    });
+
+    Enti.remove(model1._model.data.rows, 1);
 });
 },{"../":"/home/kory/dev/enti/index.js","tape":"/home/kory/dev/enti/node_modules/tape/index.js"}],"/usr/lib/node_modules/watchify/node_modules/browserify/lib/_empty.js":[function(require,module,exports){
 

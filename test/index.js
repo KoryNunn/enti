@@ -468,3 +468,27 @@ tape('nan target', function(t){
 
     model1.set('a.b.c', NaN);
 });
+
+tape('Late updates', function(t){
+    t.plan(3);
+
+    var data = {
+            data: {}
+        },
+        model1 = new Enti();
+
+    model1.on('data.*.*', function(value, event){
+        t.pass();
+    });
+
+    model1.attach(data);
+
+    Enti.set(model1._model.data, 'count', 0);
+
+    Enti.update(data, 'data', {
+        count: 1,
+        rows: [{}]
+    });
+
+    Enti.remove(model1._model.data.rows, 1);
+});

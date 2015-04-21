@@ -89,15 +89,6 @@ function trackObjects(enti, eventName, weakMap, handler, object, key, path){
     }
 
     var handle = function(value, event, emitKey){
-        if(typeof object[key] === 'object' && object[key] !== target){
-            if(targetIsObject){
-                weakMap.delete(target);
-            }
-            removeHandler(object, eventKey, handle);
-            trackObjects(enti, eventName, weakMap, handler, object, key, path);
-            return;
-        }
-
         if(enti._trackedObjects[eventName] !== weakMap){
             if(targetIsObject){
                 weakMap.delete(target);
@@ -106,11 +97,35 @@ function trackObjects(enti, eventName, weakMap, handler, object, key, path){
             return;
         }
 
+        if(eventKey !== '*' && typeof object[eventKey] === 'object' && object[eventKey] !== target){
+            if(targetIsObject){
+                weakMap.delete(target);
+            }
+            removeHandler(object, eventKey, handle);
+            trackObjects(enti, eventName, weakMap, handler, object, key, path);
+            return;
+        }
+
+        if(eventKey === '*'){
+            trackKeys(object, key, path);
+        }
+
         if(!weakMap.has(object)){
             return;
         }
 
         handler(value, event, emitKey);
+    }
+
+    function trackKeys(target, root, rest){
+        var keys = Object.keys(target);
+        for(var i = 0; i < keys.length; i++){
+            if(isFeralcardKey(root)){
+                trackObjects(enti, eventName, weakMap, handler, target, keys[i], '**' + (rest ? '.' : '') + (rest || ''));
+            }else{
+                trackObjects(enti, eventName, weakMap, handler, target, keys[i], rest);
+            }
+        }
     }
 
     addHandler(object, eventKey, handle);
@@ -140,14 +155,7 @@ function trackObjects(enti, eventName, weakMap, handler, object, key, path){
     }
 
     if(targetIsObject && isWildcardKey(root)){
-        var keys = Object.keys(target);
-        for(var i = 0; i < keys.length; i++){
-            if(isFeralcardKey(root)){
-                trackObjects(enti, eventName, weakMap, handler, target, keys[i], '**' + (rest ? '.' : '') + (rest || ''));
-            }else{
-                trackObjects(enti, eventName, weakMap, handler, target, keys[i], rest);
-            }
-        }
+        trackKeys(target, root, rest);
     }
 
     trackObjects(enti, eventName, weakMap, handler, target, root, rest);
@@ -363,7 +371,7 @@ Enti.remove = function(model, key, subKey){
 
     // Remove a key off of an object at 'key'
     if(subKey != null){
-        new Enti.remove(model[key], subKey);
+        Enti.remove(model[key], subKey);
         return;
     }
 
