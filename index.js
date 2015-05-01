@@ -25,10 +25,6 @@ function isDeep(path){
 var attachedEnties = new Set(),
     trackedObjects = new WeakMap();
 
-setInterval(function(){
-    console.log(attachedEnties.size);
-}, 1e3);
-
 function leftAndRest(path){
     var match = matchDeep(path);
     if(match){
@@ -530,6 +526,9 @@ Enti.prototype.move = function(key, index){
 
 Enti.prototype.update = function(key, index){
     return Enti.update.apply(null, [this._model].concat(toArray(arguments)));
+};
+Enti.prototype.attachedCount = function(){
+    return attachedEnties.size;
 };
 
 module.exports = Enti;
