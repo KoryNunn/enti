@@ -25,6 +25,10 @@ function isDeep(path){
 var attachedEnties = new Set(),
     trackedObjects = new WeakMap();
 
+setInterval(function(){
+    console.log(attachedEnties.size);
+}, 1e3);
+
 function leftAndRest(path){
     var match = matchDeep(path);
     if(match){
@@ -239,13 +243,19 @@ function emit(events){
 }
 
 function Enti(model){
+    var detached = model === false;
+
     if(!model || (typeof model !== 'object' && typeof model !== 'function')){
         model = {};
     }
 
     this._trackedObjects = {};
     this._emittedEvents = {};
-    this.attach(model);
+    if(detached){
+        this._model = {};
+    }else{
+        this.attach(model);
+    }
 }
 Enti.get = function(model, key){
     if(!model || typeof model !== 'object'){

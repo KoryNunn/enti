@@ -93,3 +93,13 @@ You can get the currently attached object using `'.'`
 model1.get('.') // -> object
 
 ```
+
+## Lazy initialisation
+
+If you want to create an Enti to be attached to data later, you can pass `false` to the constructor:
+
+```
+var unattachedModel = new Enti(false);
+```
+
+This creates a model that will not listen to or be able to cause events to fire, meaning lower cycles for other Enti's that are attached.
