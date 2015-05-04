@@ -482,9 +482,12 @@ Enti.update = function(model, key, value){
 Enti.prototype = Object.create(EventEmitter.prototype);
 Enti.prototype.constructor = Enti;
 Enti.prototype.attach = function(model){
-    this.detach();
-    attachedEnties.add(this);
+    if(this._model !== model){
+        this.detach();
+        attachedEnties.add(this);
+    }
 
+    this._attached = true;
     this._model = model;
 };
 Enti.prototype.detach = function(){
@@ -495,6 +498,7 @@ Enti.prototype.detach = function(){
     this._trackedObjects = {};
     this._emittedEvents = {};
     this._model = {};
+    this._attached = false;
 };
 Enti.prototype.destroy = function(){
     this.detach();
@@ -526,6 +530,9 @@ Enti.prototype.move = function(key, index){
 
 Enti.prototype.update = function(key, index){
     return Enti.update.apply(null, [this._model].concat(toArray(arguments)));
+};
+Enti.prototype.isAttached = function(){
+    return this._attached;
 };
 Enti.prototype.attachedCount = function(){
     return attachedEnties.size;

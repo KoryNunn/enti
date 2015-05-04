@@ -103,3 +103,5 @@ var unattachedModel = new Enti(false);
 ```
 
 This creates a model that will not listen to or be able to cause events to fire, meaning lower cycles for other Enti's that are attached.
+
+You can check if a model is attached with the method `.isAttached()`

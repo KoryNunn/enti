@@ -492,3 +492,15 @@ tape('Late updates', function(t){
 
     Enti.remove(model1._model.data.rows, 1);
 });
+
+tape('is attached', function(t){
+    t.plan(2);
+
+    var model = new Enti(false);
+
+    t.notOk(model.isAttached());
+
+    model.attach();
+
+    t.ok(model.isAttached());
+});
