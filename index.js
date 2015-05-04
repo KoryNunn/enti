@@ -484,9 +484,11 @@ Enti.prototype.constructor = Enti;
 Enti.prototype.attach = function(model){
     if(this._model !== model){
         this.detach();
-        attachedEnties.add(this);
     }
 
+    if(!attachedEnties.has(this)){
+        attachedEnties.add(this);
+    }
     this._attached = true;
     this._model = model;
 };

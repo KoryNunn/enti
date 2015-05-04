@@ -504,3 +504,15 @@ tape('is attached', function(t){
 
     t.ok(model.isAttached());
 });
+
+tape('late attach events', function(t){
+    t.plan(1);
+
+    var model = new Enti(false);
+
+    model.on('foo', t.pass);
+
+    model.attach(model.get('.'));
+
+    model.set('foo', 'bar');
+});
