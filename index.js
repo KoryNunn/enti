@@ -185,7 +185,10 @@ function trackPaths(enti, target){
         return;
     }
 
-    for(var key in enti._events){
+    var keys = Object.keys(enti._events),
+        key;
+
+    for(var i = 0; key = keys[i], i < keys.length; i++){
         // Bailout if the event is a single key,
         // and the target isnt the same as the entis _model
         if(enti._model !== target && !isDeep(key)){
