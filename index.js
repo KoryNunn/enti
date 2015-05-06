@@ -75,7 +75,7 @@ function removeHandler(object, key, handler){
     handlers.delete(handler);
 }
 
-function trackObjects(enti, eventName, weakMap, handler, object, key, path){
+function trackObjects(eventName, weakMap, handler, object, key, path){
     if(!object || typeof object !== 'object'){
         return;
     }
@@ -89,20 +89,12 @@ function trackObjects(enti, eventName, weakMap, handler, object, key, path){
     }
 
     var handle = function(value, event, emitKey){
-        if(enti._trackedObjects[eventName] !== weakMap){
-            if(targetIsObject){
-                weakMap.delete(target);
-            }
-            removeHandler(object, eventKey, handle);
-            return;
-        }
-
         if(eventKey !== '*' && typeof object[eventKey] === 'object' && object[eventKey] !== target){
             if(targetIsObject){
                 weakMap.delete(target);
             }
             removeHandler(object, eventKey, handle);
-            trackObjects(enti, eventName, weakMap, handler, object, key, path);
+            trackObjects(eventName, weakMap, handler, object, key, path);
             return;
         }
 
@@ -121,9 +113,9 @@ function trackObjects(enti, eventName, weakMap, handler, object, key, path){
         var keys = Object.keys(target);
         for(var i = 0; i < keys.length; i++){
             if(isFeralcardKey(root)){
-                trackObjects(enti, eventName, weakMap, handler, target, keys[i], '**' + (rest ? '.' : '') + (rest || ''));
+                trackObjects(eventName, weakMap, handler, target, keys[i], '**' + (rest ? '.' : '') + (rest || ''));
             }else{
-                trackObjects(enti, eventName, weakMap, handler, target, keys[i], rest);
+                trackObjects(eventName, weakMap, handler, target, keys[i], rest);
             }
         }
     }
@@ -158,26 +150,57 @@ function trackObjects(enti, eventName, weakMap, handler, object, key, path){
         trackKeys(target, root, rest);
     }
 
-    trackObjects(enti, eventName, weakMap, handler, target, root, rest);
+    trackObjects(eventName, weakMap, handler, target, root, rest);
 }
 
-function trackPath(enti, eventName){
-    var entiTrackedObjects = enti._trackedObjects[eventName];
+var trackedEvents = new WeakMap();
 
-    if(!entiTrackedObjects){
-        entiTrackedObjects = new WeakMap();
-        enti._trackedObjects[eventName] = entiTrackedObjects;
+function trackPath(enti, eventName){
+    var object = enti._model,
+        trackedObjectPaths = trackedEvents.get(object);
+
+    if(!trackedObjectPaths){
+        trackedObjectPaths = {};
+        trackedEvents.set(object, trackedObjectPaths);
     }
+
+    var trackedPaths = trackedObjectPaths[eventName];
+
+    if(!trackedPaths){
+        trackedPaths = {
+            entis: new Set(),
+            trackedObjects: new WeakMap()
+        };
+        trackedObjectPaths[eventName] = trackedPaths;
+    }
+
+    if(trackedPaths.entis.has(enti)){
+        return;
+    }
+
+    trackedPaths.entis.add(enti);
 
     var handler = function(value, event, emitKey){
-        if(enti._emittedEvents[eventName] === emitKey){
-            return;
-        }
-        enti._emittedEvents[eventName] = emitKey;
-        enti.emit(eventName, value, event);
+        trackedPaths.entis.forEach(function(enti){
+            if(enti._model !== object){
+                trackedPaths.entis.delete(enti);
+                if(trackedPaths.entis.size === 0){
+                    delete trackedObjectPaths[eventName];
+                    if(!Object.keys(trackedObjectPaths).length){
+                        trackedEvents.delete(object);
+                    }
+                }
+                return;
+            }
+            if(enti._emittedEvents[eventName] === emitKey){
+                return;
+            }
+            enti._emittedEvents[eventName] = emitKey;
+            enti.emit(eventName, value, event);
+        });
     }
 
-    trackObjects(enti, eventName, entiTrackedObjects, handler, enti, '_model', eventName);
+    trackObjects(eventName, trackedPaths.trackedObjects, handler, {model:object}, 'model', eventName);
 }
 
 function trackPaths(enti, target){
@@ -248,7 +271,6 @@ function Enti(model){
         model = {};
     }
 
-    this._trackedObjects = {};
     this._emittedEvents = {};
     if(detached){
         this._model = {};
@@ -500,7 +522,6 @@ Enti.prototype.detach = function(){
         attachedEnties.delete(this);
     }
 
-    this._trackedObjects = {};
     this._emittedEvents = {};
     this._model = {};
     this._attached = false;

@@ -76,7 +76,7 @@ function removeHandler(object, key, handler){
     handlers.delete(handler);
 }
 
-function trackObjects(enti, eventName, weakMap, handler, object, key, path){
+function trackObjects(eventName, weakMap, handler, object, key, path){
     if(!object || typeof object !== 'object'){
         return;
     }
@@ -90,20 +90,12 @@ function trackObjects(enti, eventName, weakMap, handler, object, key, path){
     }
 
     var handle = function(value, event, emitKey){
-        if(enti._trackedObjects[eventName] !== weakMap){
-            if(targetIsObject){
-                weakMap.delete(target);
-            }
-            removeHandler(object, eventKey, handle);
-            return;
-        }
-
         if(eventKey !== '*' && typeof object[eventKey] === 'object' && object[eventKey] !== target){
             if(targetIsObject){
                 weakMap.delete(target);
             }
             removeHandler(object, eventKey, handle);
-            trackObjects(enti, eventName, weakMap, handler, object, key, path);
+            trackObjects(eventName, weakMap, handler, object, key, path);
             return;
         }
 
@@ -122,9 +114,9 @@ function trackObjects(enti, eventName, weakMap, handler, object, key, path){
         var keys = Object.keys(target);
         for(var i = 0; i < keys.length; i++){
             if(isFeralcardKey(root)){
-                trackObjects(enti, eventName, weakMap, handler, target, keys[i], '**' + (rest ? '.' : '') + (rest || ''));
+                trackObjects(eventName, weakMap, handler, target, keys[i], '**' + (rest ? '.' : '') + (rest || ''));
             }else{
-                trackObjects(enti, eventName, weakMap, handler, target, keys[i], rest);
+                trackObjects(eventName, weakMap, handler, target, keys[i], rest);
             }
         }
     }
@@ -159,26 +151,57 @@ function trackObjects(enti, eventName, weakMap, handler, object, key, path){
         trackKeys(target, root, rest);
     }
 
-    trackObjects(enti, eventName, weakMap, handler, target, root, rest);
+    trackObjects(eventName, weakMap, handler, target, root, rest);
 }
 
-function trackPath(enti, eventName){
-    var entiTrackedObjects = enti._trackedObjects[eventName];
+var trackedEvents = new WeakMap();
 
-    if(!entiTrackedObjects){
-        entiTrackedObjects = new WeakMap();
-        enti._trackedObjects[eventName] = entiTrackedObjects;
+function trackPath(enti, eventName){
+    var object = enti._model,
+        trackedObjectPaths = trackedEvents.get(object);
+
+    if(!trackedObjectPaths){
+        trackedObjectPaths = {};
+        trackedEvents.set(object, trackedObjectPaths);
     }
+
+    var trackedPaths = trackedObjectPaths[eventName];
+
+    if(!trackedPaths){
+        trackedPaths = {
+            entis: new Set(),
+            trackedObjects: new WeakMap()
+        };
+        trackedObjectPaths[eventName] = trackedPaths;
+    }
+
+    if(trackedPaths.entis.has(enti)){
+        return;
+    }
+
+    trackedPaths.entis.add(enti);
 
     var handler = function(value, event, emitKey){
-        if(enti._emittedEvents[eventName] === emitKey){
-            return;
-        }
-        enti._emittedEvents[eventName] = emitKey;
-        enti.emit(eventName, value, event);
+        trackedPaths.entis.forEach(function(enti){
+            if(enti._model !== object){
+                trackedPaths.entis.delete(enti);
+                if(trackedPaths.entis.size === 0){
+                    delete trackedObjectPaths[eventName];
+                    if(!Object.keys(trackedObjectPaths).length){
+                        trackedEvents.delete(object);
+                    }
+                }
+                return;
+            }
+            if(enti._emittedEvents[eventName] === emitKey){
+                return;
+            }
+            enti._emittedEvents[eventName] = emitKey;
+            enti.emit(eventName, value, event);
+        });
     }
 
-    trackObjects(enti, eventName, entiTrackedObjects, handler, enti, '_model', eventName);
+    trackObjects(eventName, trackedPaths.trackedObjects, handler, {model:object}, 'model', eventName);
 }
 
 function trackPaths(enti, target){
@@ -186,7 +209,10 @@ function trackPaths(enti, target){
         return;
     }
 
-    for(var key in enti._events){
+    var keys = Object.keys(enti._events),
+        key;
+
+    for(var i = 0; key = keys[i], i < keys.length; i++){
         // Bailout if the event is a single key,
         // and the target isnt the same as the entis _model
         if(enti._model !== target && !isDeep(key)){
@@ -240,13 +266,18 @@ function emit(events){
 }
 
 function Enti(model){
+    var detached = model === false;
+
     if(!model || (typeof model !== 'object' && typeof model !== 'function')){
         model = {};
     }
 
-    this._trackedObjects = {};
     this._emittedEvents = {};
-    this.attach(model);
+    if(detached){
+        this._model = {};
+    }else{
+        this.attach(model);
+    }
 }
 Enti.get = function(model, key){
     if(!model || typeof model !== 'object'){
@@ -477,9 +508,14 @@ Enti.update = function(model, key, value){
 Enti.prototype = Object.create(EventEmitter.prototype);
 Enti.prototype.constructor = Enti;
 Enti.prototype.attach = function(model){
-    this.detach();
-    attachedEnties.add(this);
+    if(this._model !== model){
+        this.detach();
+    }
 
+    if(!attachedEnties.has(this)){
+        attachedEnties.add(this);
+    }
+    this._attached = true;
     this._model = model;
 };
 Enti.prototype.detach = function(){
@@ -487,9 +523,9 @@ Enti.prototype.detach = function(){
         attachedEnties.delete(this);
     }
 
-    this._trackedObjects = {};
     this._emittedEvents = {};
     this._model = {};
+    this._attached = false;
 };
 Enti.prototype.destroy = function(){
     this.detach();
@@ -521,6 +557,12 @@ Enti.prototype.move = function(key, index){
 
 Enti.prototype.update = function(key, index){
     return Enti.update.apply(null, [this._model].concat(toArray(arguments)));
+};
+Enti.prototype.isAttached = function(){
+    return this._attached;
+};
+Enti.prototype.attachedCount = function(){
+    return attachedEnties.size;
 };
 
 module.exports = Enti;
@@ -760,7 +802,7 @@ module.exports = function (props/*, bindTo*/) {
 	});
 };
 
-},{"es5-ext/object/copy":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/copy.js","es5-ext/object/map":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/map.js","es5-ext/object/valid-callable":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/valid-callable.js","es5-ext/object/valid-value":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/valid-value.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/index.js":[function(require,module,exports){
+},{"es5-ext/object/copy":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/copy.js","es5-ext/object/map":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/map.js","es5-ext/object/valid-callable":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/valid-callable.js","es5-ext/object/valid-value":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/valid-value.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/index.js":[function(require,module,exports){
 'use strict';
 
 var assign        = require('es5-ext/object/assign')
@@ -825,7 +867,208 @@ d.gs = function (dscr, get, set/*, options*/) {
 	return !options ? desc : assign(normalizeOpts(options), desc);
 };
 
-},{"es5-ext/object/assign":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/assign/index.js","es5-ext/object/is-callable":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/is-callable.js","es5-ext/object/normalize-options":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/normalize-options.js","es5-ext/string/#/contains":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/string/#/contains/index.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/array/#/clear.js":[function(require,module,exports){
+},{"es5-ext/object/assign":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/assign/index.js","es5-ext/object/is-callable":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/is-callable.js","es5-ext/object/normalize-options":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/normalize-options.js","es5-ext/string/#/contains":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/string/#/contains/index.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/_iterate.js":[function(require,module,exports){
+// Internal method, used by iteration functions.
+// Calls a function for each key-value pair found in object
+// Optionally takes compareFn to iterate object in specific order
+
+'use strict';
+
+var isCallable = require('./is-callable')
+  , callable   = require('./valid-callable')
+  , value      = require('./valid-value')
+
+  , call = Function.prototype.call, keys = Object.keys
+  , propertyIsEnumerable = Object.prototype.propertyIsEnumerable;
+
+module.exports = function (method, defVal) {
+	return function (obj, cb/*, thisArg, compareFn*/) {
+		var list, thisArg = arguments[2], compareFn = arguments[3];
+		obj = Object(value(obj));
+		callable(cb);
+
+		list = keys(obj);
+		if (compareFn) {
+			list.sort(isCallable(compareFn) ? compareFn.bind(obj) : undefined);
+		}
+		return list[method](function (key, index) {
+			if (!propertyIsEnumerable.call(obj, key)) return defVal;
+			return call.call(cb, thisArg, obj[key], key, obj, index);
+		});
+	};
+};
+
+},{"./is-callable":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/is-callable.js","./valid-callable":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/valid-callable.js","./valid-value":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/valid-value.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/assign/index.js":[function(require,module,exports){
+'use strict';
+
+module.exports = require('./is-implemented')()
+	? Object.assign
+	: require('./shim');
+
+},{"./is-implemented":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/assign/is-implemented.js","./shim":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/assign/shim.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/assign/is-implemented.js":[function(require,module,exports){
+'use strict';
+
+module.exports = function () {
+	var assign = Object.assign, obj;
+	if (typeof assign !== 'function') return false;
+	obj = { foo: 'raz' };
+	assign(obj, { bar: 'dwa' }, { trzy: 'trzy' });
+	return (obj.foo + obj.bar + obj.trzy) === 'razdwatrzy';
+};
+
+},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/assign/shim.js":[function(require,module,exports){
+'use strict';
+
+var keys  = require('../keys')
+  , value = require('../valid-value')
+
+  , max = Math.max;
+
+module.exports = function (dest, src/*, …srcn*/) {
+	var error, i, l = max(arguments.length, 2), assign;
+	dest = Object(value(dest));
+	assign = function (key) {
+		try { dest[key] = src[key]; } catch (e) {
+			if (!error) error = e;
+		}
+	};
+	for (i = 1; i < l; ++i) {
+		src = arguments[i];
+		keys(src).forEach(assign);
+	}
+	if (error !== undefined) throw error;
+	return dest;
+};
+
+},{"../keys":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/keys/index.js","../valid-value":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/valid-value.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/copy.js":[function(require,module,exports){
+'use strict';
+
+var assign = require('./assign')
+  , value  = require('./valid-value');
+
+module.exports = function (obj) {
+	var copy = Object(value(obj));
+	if (copy !== obj) return copy;
+	return assign({}, obj);
+};
+
+},{"./assign":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/assign/index.js","./valid-value":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/valid-value.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/for-each.js":[function(require,module,exports){
+'use strict';
+
+module.exports = require('./_iterate')('forEach');
+
+},{"./_iterate":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/_iterate.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/is-callable.js":[function(require,module,exports){
+// Deprecated
+
+'use strict';
+
+module.exports = function (obj) { return typeof obj === 'function'; };
+
+},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/keys/index.js":[function(require,module,exports){
+'use strict';
+
+module.exports = require('./is-implemented')()
+	? Object.keys
+	: require('./shim');
+
+},{"./is-implemented":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/keys/is-implemented.js","./shim":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/keys/shim.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/keys/is-implemented.js":[function(require,module,exports){
+'use strict';
+
+module.exports = function () {
+	try {
+		Object.keys('primitive');
+		return true;
+	} catch (e) { return false; }
+};
+
+},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/keys/shim.js":[function(require,module,exports){
+'use strict';
+
+var keys = Object.keys;
+
+module.exports = function (object) {
+	return keys(object == null ? object : Object(object));
+};
+
+},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/map.js":[function(require,module,exports){
+'use strict';
+
+var callable = require('./valid-callable')
+  , forEach  = require('./for-each')
+
+  , call = Function.prototype.call;
+
+module.exports = function (obj, cb/*, thisArg*/) {
+	var o = {}, thisArg = arguments[2];
+	callable(cb);
+	forEach(obj, function (value, key, obj, index) {
+		o[key] = call.call(cb, thisArg, value, key, obj, index);
+	});
+	return o;
+};
+
+},{"./for-each":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/for-each.js","./valid-callable":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/valid-callable.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/normalize-options.js":[function(require,module,exports){
+'use strict';
+
+var forEach = Array.prototype.forEach, create = Object.create;
+
+var process = function (src, obj) {
+	var key;
+	for (key in src) obj[key] = src[key];
+};
+
+module.exports = function (options/*, …options*/) {
+	var result = create(null);
+	forEach.call(arguments, function (options) {
+		if (options == null) return;
+		process(Object(options), result);
+	});
+	return result;
+};
+
+},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/valid-callable.js":[function(require,module,exports){
+'use strict';
+
+module.exports = function (fn) {
+	if (typeof fn !== 'function') throw new TypeError(fn + " is not a function");
+	return fn;
+};
+
+},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/object/valid-value.js":[function(require,module,exports){
+'use strict';
+
+module.exports = function (value) {
+	if (value == null) throw new TypeError("Cannot use null or undefined");
+	return value;
+};
+
+},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/string/#/contains/index.js":[function(require,module,exports){
+'use strict';
+
+module.exports = require('./is-implemented')()
+	? String.prototype.contains
+	: require('./shim');
+
+},{"./is-implemented":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/string/#/contains/is-implemented.js","./shim":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/string/#/contains/shim.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/string/#/contains/is-implemented.js":[function(require,module,exports){
+'use strict';
+
+var str = 'razdwatrzy';
+
+module.exports = function () {
+	if (typeof str.contains !== 'function') return false;
+	return ((str.contains('dwa') === true) && (str.contains('foo') === false));
+};
+
+},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/node_modules/es5-ext/string/#/contains/shim.js":[function(require,module,exports){
+'use strict';
+
+var indexOf = String.prototype.indexOf;
+
+module.exports = function (searchString/*, position*/) {
+	return indexOf.call(this, searchString, arguments[1]) > -1;
+};
+
+},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/array/#/clear.js":[function(require,module,exports){
 // Inspired by Google Closure:
 // http://closure-library.googlecode.com/svn/docs/
 // closure_goog_array_array.js.html#goog.array.clear
@@ -918,92 +1161,7 @@ var toInteger = require('./to-integer')
 
 module.exports = function (value) { return max(0, toInteger(value)); };
 
-},{"./to-integer":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/number/to-integer.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/_iterate.js":[function(require,module,exports){
-// Internal method, used by iteration functions.
-// Calls a function for each key-value pair found in object
-// Optionally takes compareFn to iterate object in specific order
-
-'use strict';
-
-var isCallable = require('./is-callable')
-  , callable   = require('./valid-callable')
-  , value      = require('./valid-value')
-
-  , call = Function.prototype.call, keys = Object.keys
-  , propertyIsEnumerable = Object.prototype.propertyIsEnumerable;
-
-module.exports = function (method, defVal) {
-	return function (obj, cb/*, thisArg, compareFn*/) {
-		var list, thisArg = arguments[2], compareFn = arguments[3];
-		obj = Object(value(obj));
-		callable(cb);
-
-		list = keys(obj);
-		if (compareFn) {
-			list.sort(isCallable(compareFn) ? compareFn.bind(obj) : undefined);
-		}
-		return list[method](function (key, index) {
-			if (!propertyIsEnumerable.call(obj, key)) return defVal;
-			return call.call(cb, thisArg, obj[key], key, obj, index);
-		});
-	};
-};
-
-},{"./is-callable":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/is-callable.js","./valid-callable":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/valid-callable.js","./valid-value":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/valid-value.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/assign/index.js":[function(require,module,exports){
-'use strict';
-
-module.exports = require('./is-implemented')()
-	? Object.assign
-	: require('./shim');
-
-},{"./is-implemented":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/assign/is-implemented.js","./shim":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/assign/shim.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/assign/is-implemented.js":[function(require,module,exports){
-'use strict';
-
-module.exports = function () {
-	var assign = Object.assign, obj;
-	if (typeof assign !== 'function') return false;
-	obj = { foo: 'raz' };
-	assign(obj, { bar: 'dwa' }, { trzy: 'trzy' });
-	return (obj.foo + obj.bar + obj.trzy) === 'razdwatrzy';
-};
-
-},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/assign/shim.js":[function(require,module,exports){
-'use strict';
-
-var keys  = require('../keys')
-  , value = require('../valid-value')
-
-  , max = Math.max;
-
-module.exports = function (dest, src/*, …srcn*/) {
-	var error, i, l = max(arguments.length, 2), assign;
-	dest = Object(value(dest));
-	assign = function (key) {
-		try { dest[key] = src[key]; } catch (e) {
-			if (!error) error = e;
-		}
-	};
-	for (i = 1; i < l; ++i) {
-		src = arguments[i];
-		keys(src).forEach(assign);
-	}
-	if (error !== undefined) throw error;
-	return dest;
-};
-
-},{"../keys":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/keys/index.js","../valid-value":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/valid-value.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/copy.js":[function(require,module,exports){
-'use strict';
-
-var assign = require('./assign')
-  , value  = require('./valid-value');
-
-module.exports = function (obj) {
-	var copy = Object(value(obj));
-	if (copy !== obj) return copy;
-	return assign({}, obj);
-};
-
-},{"./assign":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/assign/index.js","./valid-value":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/valid-value.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/create.js":[function(require,module,exports){
+},{"./to-integer":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/number/to-integer.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/create.js":[function(require,module,exports){
 // Workaround for http://code.google.com/p/v8/issues/detail?id=2804
 
 'use strict';
@@ -1041,87 +1199,13 @@ module.exports = (function () {
 	};
 }());
 
-},{"./set-prototype-of/is-implemented":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/set-prototype-of/is-implemented.js","./set-prototype-of/shim":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/set-prototype-of/shim.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/for-each.js":[function(require,module,exports){
-'use strict';
-
-module.exports = require('./_iterate')('forEach');
-
-},{"./_iterate":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/_iterate.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/is-callable.js":[function(require,module,exports){
-// Deprecated
-
-'use strict';
-
-module.exports = function (obj) { return typeof obj === 'function'; };
-
-},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/is-object.js":[function(require,module,exports){
+},{"./set-prototype-of/is-implemented":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/set-prototype-of/is-implemented.js","./set-prototype-of/shim":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/set-prototype-of/shim.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/is-object.js":[function(require,module,exports){
 'use strict';
 
 var map = { function: true, object: true };
 
 module.exports = function (x) {
 	return ((x != null) && map[typeof x]) || false;
-};
-
-},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/keys/index.js":[function(require,module,exports){
-'use strict';
-
-module.exports = require('./is-implemented')()
-	? Object.keys
-	: require('./shim');
-
-},{"./is-implemented":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/keys/is-implemented.js","./shim":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/keys/shim.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/keys/is-implemented.js":[function(require,module,exports){
-'use strict';
-
-module.exports = function () {
-	try {
-		Object.keys('primitive');
-		return true;
-	} catch (e) { return false; }
-};
-
-},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/keys/shim.js":[function(require,module,exports){
-'use strict';
-
-var keys = Object.keys;
-
-module.exports = function (object) {
-	return keys(object == null ? object : Object(object));
-};
-
-},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/map.js":[function(require,module,exports){
-'use strict';
-
-var callable = require('./valid-callable')
-  , forEach  = require('./for-each')
-
-  , call = Function.prototype.call;
-
-module.exports = function (obj, cb/*, thisArg*/) {
-	var o = {}, thisArg = arguments[2];
-	callable(cb);
-	forEach(obj, function (value, key, obj, index) {
-		o[key] = call.call(cb, thisArg, value, key, obj, index);
-	});
-	return o;
-};
-
-},{"./for-each":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/for-each.js","./valid-callable":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/valid-callable.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/normalize-options.js":[function(require,module,exports){
-'use strict';
-
-var forEach = Array.prototype.forEach, create = Object.create;
-
-var process = function (src, obj) {
-	var key;
-	for (key in src) obj[key] = src[key];
-};
-
-module.exports = function (options/*, …options*/) {
-	var result = create(null);
-	forEach.call(arguments, function (options) {
-		if (options == null) return;
-		process(Object(options), result);
-	});
-	return result;
 };
 
 },{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/set-prototype-of/index.js":[function(require,module,exports){
@@ -1261,18 +1345,6 @@ module.exports = function (searchString/*, position*/) {
 	return indexOf.call(this, searchString, arguments[1]) > -1;
 };
 
-},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/string/is-string.js":[function(require,module,exports){
-'use strict';
-
-var toString = Object.prototype.toString
-
-  , id = toString.call('');
-
-module.exports = function (x) {
-	return (typeof x === 'string') || (x && (typeof x === 'object') &&
-		((x instanceof String) || (toString.call(x) === id))) || false;
-};
-
 },{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/array.js":[function(require,module,exports){
 'use strict';
 
@@ -1305,7 +1377,7 @@ ArrayIterator.prototype = Object.create(Iterator.prototype, {
 	toString: d(function () { return '[object Array Iterator]'; })
 });
 
-},{"./":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/index.js","d":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/index.js","es5-ext/object/set-prototype-of":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/set-prototype-of/index.js","es5-ext/string/#/contains":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/string/#/contains/index.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/for-of.js":[function(require,module,exports){
+},{"./":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/index.js","d":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/index.js","es5-ext/object/set-prototype-of":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/set-prototype-of/index.js","es5-ext/string/#/contains":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/string/#/contains/index.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/for-of.js":[function(require,module,exports){
 'use strict';
 
 var callable = require('es5-ext/object/valid-callable')
@@ -1351,7 +1423,7 @@ module.exports = function (iterable, cb/*, thisArg*/) {
 	}
 };
 
-},{"./get":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/get.js","es5-ext/object/valid-callable":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/valid-callable.js","es5-ext/string/is-string":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/string/is-string.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/get.js":[function(require,module,exports){
+},{"./get":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/get.js","es5-ext/object/valid-callable":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/valid-callable.js","es5-ext/string/is-string":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/string/is-string.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/get.js":[function(require,module,exports){
 'use strict';
 
 var isString = require('es5-ext/string/is-string')
@@ -1366,7 +1438,7 @@ module.exports = function (obj) {
 	return new ArrayIterator(obj);
 };
 
-},{"./array":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/array.js","./string":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/string.js","./valid-iterable":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/valid-iterable.js","es5-ext/string/is-string":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/string/is-string.js","es6-symbol":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es6-symbol/index.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/index.js":[function(require,module,exports){
+},{"./array":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/array.js","./string":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/string.js","./valid-iterable":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/valid-iterable.js","es5-ext/string/is-string":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/string/is-string.js","es6-symbol":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es6-symbol/index.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/index.js":[function(require,module,exports){
 'use strict';
 
 var clear    = require('es5-ext/array/#/clear')
@@ -1458,7 +1530,7 @@ defineProperty(Iterator.prototype, Symbol.iterator, d(function () {
 }));
 defineProperty(Iterator.prototype, Symbol.toStringTag, d('', 'Iterator'));
 
-},{"d":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/index.js","d/auto-bind":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/auto-bind.js","es5-ext/array/#/clear":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/array/#/clear.js","es5-ext/object/assign":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/assign/index.js","es5-ext/object/valid-callable":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/valid-callable.js","es5-ext/object/valid-value":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/valid-value.js","es6-symbol":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es6-symbol/index.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/is-iterable.js":[function(require,module,exports){
+},{"d":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/index.js","d/auto-bind":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/auto-bind.js","es5-ext/array/#/clear":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/array/#/clear.js","es5-ext/object/assign":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/assign/index.js","es5-ext/object/valid-callable":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/valid-callable.js","es5-ext/object/valid-value":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/valid-value.js","es6-symbol":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es6-symbol/index.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/is-iterable.js":[function(require,module,exports){
 'use strict';
 
 var isString       = require('es5-ext/string/is-string')
@@ -1473,7 +1545,285 @@ module.exports = function (value) {
 	return (typeof value[iteratorSymbol] === 'function');
 };
 
-},{"es5-ext/string/is-string":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/string/is-string.js","es6-symbol":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es6-symbol/index.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es6-symbol/index.js":[function(require,module,exports){
+},{"es5-ext/string/is-string":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/string/is-string.js","es6-symbol":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es6-symbol/index.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/array/#/clear.js":[function(require,module,exports){
+// Inspired by Google Closure:
+// http://closure-library.googlecode.com/svn/docs/
+// closure_goog_array_array.js.html#goog.array.clear
+
+'use strict';
+
+var value = require('../../object/valid-value');
+
+module.exports = function () {
+	value(this).length = 0;
+	return this;
+};
+
+},{"../../object/valid-value":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/valid-value.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/assign/index.js":[function(require,module,exports){
+'use strict';
+
+module.exports = require('./is-implemented')()
+	? Object.assign
+	: require('./shim');
+
+},{"./is-implemented":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/assign/is-implemented.js","./shim":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/assign/shim.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/assign/is-implemented.js":[function(require,module,exports){
+'use strict';
+
+module.exports = function () {
+	var assign = Object.assign, obj;
+	if (typeof assign !== 'function') return false;
+	obj = { foo: 'raz' };
+	assign(obj, { bar: 'dwa' }, { trzy: 'trzy' });
+	return (obj.foo + obj.bar + obj.trzy) === 'razdwatrzy';
+};
+
+},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/assign/shim.js":[function(require,module,exports){
+'use strict';
+
+var keys  = require('../keys')
+  , value = require('../valid-value')
+
+  , max = Math.max;
+
+module.exports = function (dest, src/*, …srcn*/) {
+	var error, i, l = max(arguments.length, 2), assign;
+	dest = Object(value(dest));
+	assign = function (key) {
+		try { dest[key] = src[key]; } catch (e) {
+			if (!error) error = e;
+		}
+	};
+	for (i = 1; i < l; ++i) {
+		src = arguments[i];
+		keys(src).forEach(assign);
+	}
+	if (error !== undefined) throw error;
+	return dest;
+};
+
+},{"../keys":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/keys/index.js","../valid-value":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/valid-value.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/create.js":[function(require,module,exports){
+// Workaround for http://code.google.com/p/v8/issues/detail?id=2804
+
+'use strict';
+
+var create = Object.create, shim;
+
+if (!require('./set-prototype-of/is-implemented')()) {
+	shim = require('./set-prototype-of/shim');
+}
+
+module.exports = (function () {
+	var nullObject, props, desc;
+	if (!shim) return create;
+	if (shim.level !== 1) return create;
+
+	nullObject = {};
+	props = {};
+	desc = { configurable: false, enumerable: false, writable: true,
+		value: undefined };
+	Object.getOwnPropertyNames(Object.prototype).forEach(function (name) {
+		if (name === '__proto__') {
+			props[name] = { configurable: true, enumerable: false, writable: true,
+				value: undefined };
+			return;
+		}
+		props[name] = desc;
+	});
+	Object.defineProperties(nullObject, props);
+
+	Object.defineProperty(shim, 'nullPolyfill', { configurable: false,
+		enumerable: false, writable: false, value: nullObject });
+
+	return function (prototype, props) {
+		return create((prototype === null) ? nullObject : prototype, props);
+	};
+}());
+
+},{"./set-prototype-of/is-implemented":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/set-prototype-of/is-implemented.js","./set-prototype-of/shim":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/set-prototype-of/shim.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/is-object.js":[function(require,module,exports){
+'use strict';
+
+var map = { function: true, object: true };
+
+module.exports = function (x) {
+	return ((x != null) && map[typeof x]) || false;
+};
+
+},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/keys/index.js":[function(require,module,exports){
+'use strict';
+
+module.exports = require('./is-implemented')()
+	? Object.keys
+	: require('./shim');
+
+},{"./is-implemented":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/keys/is-implemented.js","./shim":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/keys/shim.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/keys/is-implemented.js":[function(require,module,exports){
+'use strict';
+
+module.exports = function () {
+	try {
+		Object.keys('primitive');
+		return true;
+	} catch (e) { return false; }
+};
+
+},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/keys/shim.js":[function(require,module,exports){
+'use strict';
+
+var keys = Object.keys;
+
+module.exports = function (object) {
+	return keys(object == null ? object : Object(object));
+};
+
+},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/set-prototype-of/index.js":[function(require,module,exports){
+'use strict';
+
+module.exports = require('./is-implemented')()
+	? Object.setPrototypeOf
+	: require('./shim');
+
+},{"./is-implemented":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/set-prototype-of/is-implemented.js","./shim":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/set-prototype-of/shim.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/set-prototype-of/is-implemented.js":[function(require,module,exports){
+'use strict';
+
+var create = Object.create, getPrototypeOf = Object.getPrototypeOf
+  , x = {};
+
+module.exports = function (/*customCreate*/) {
+	var setPrototypeOf = Object.setPrototypeOf
+	  , customCreate = arguments[0] || create;
+	if (typeof setPrototypeOf !== 'function') return false;
+	return getPrototypeOf(setPrototypeOf(customCreate(null), x)) === x;
+};
+
+},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/set-prototype-of/shim.js":[function(require,module,exports){
+// Big thanks to @WebReflection for sorting this out
+// https://gist.github.com/WebReflection/5593554
+
+'use strict';
+
+var isObject      = require('../is-object')
+  , value         = require('../valid-value')
+
+  , isPrototypeOf = Object.prototype.isPrototypeOf
+  , defineProperty = Object.defineProperty
+  , nullDesc = { configurable: true, enumerable: false, writable: true,
+		value: undefined }
+  , validate;
+
+validate = function (obj, prototype) {
+	value(obj);
+	if ((prototype === null) || isObject(prototype)) return obj;
+	throw new TypeError('Prototype must be null or an object');
+};
+
+module.exports = (function (status) {
+	var fn, set;
+	if (!status) return null;
+	if (status.level === 2) {
+		if (status.set) {
+			set = status.set;
+			fn = function (obj, prototype) {
+				set.call(validate(obj, prototype), prototype);
+				return obj;
+			};
+		} else {
+			fn = function (obj, prototype) {
+				validate(obj, prototype).__proto__ = prototype;
+				return obj;
+			};
+		}
+	} else {
+		fn = function self(obj, prototype) {
+			var isNullBase;
+			validate(obj, prototype);
+			isNullBase = isPrototypeOf.call(self.nullPolyfill, obj);
+			if (isNullBase) delete self.nullPolyfill.__proto__;
+			if (prototype === null) prototype = self.nullPolyfill;
+			obj.__proto__ = prototype;
+			if (isNullBase) defineProperty(self.nullPolyfill, '__proto__', nullDesc);
+			return obj;
+		};
+	}
+	return Object.defineProperty(fn, 'level', { configurable: false,
+		enumerable: false, writable: false, value: status.level });
+}((function () {
+	var x = Object.create(null), y = {}, set
+	  , desc = Object.getOwnPropertyDescriptor(Object.prototype, '__proto__');
+
+	if (desc) {
+		try {
+			set = desc.set; // Opera crashes at this point
+			set.call(x, y);
+		} catch (ignore) { }
+		if (Object.getPrototypeOf(x) === y) return { set: set, level: 2 };
+	}
+
+	x.__proto__ = y;
+	if (Object.getPrototypeOf(x) === y) return { level: 2 };
+
+	x = {};
+	x.__proto__ = y;
+	if (Object.getPrototypeOf(x) === y) return { level: 1 };
+
+	return false;
+}())));
+
+require('../create');
+
+},{"../create":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/create.js","../is-object":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/is-object.js","../valid-value":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/valid-value.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/valid-callable.js":[function(require,module,exports){
+'use strict';
+
+module.exports = function (fn) {
+	if (typeof fn !== 'function') throw new TypeError(fn + " is not a function");
+	return fn;
+};
+
+},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/valid-value.js":[function(require,module,exports){
+'use strict';
+
+module.exports = function (value) {
+	if (value == null) throw new TypeError("Cannot use null or undefined");
+	return value;
+};
+
+},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/string/#/contains/index.js":[function(require,module,exports){
+'use strict';
+
+module.exports = require('./is-implemented')()
+	? String.prototype.contains
+	: require('./shim');
+
+},{"./is-implemented":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/string/#/contains/is-implemented.js","./shim":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/string/#/contains/shim.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/string/#/contains/is-implemented.js":[function(require,module,exports){
+'use strict';
+
+var str = 'razdwatrzy';
+
+module.exports = function () {
+	if (typeof str.contains !== 'function') return false;
+	return ((str.contains('dwa') === true) && (str.contains('foo') === false));
+};
+
+},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/string/#/contains/shim.js":[function(require,module,exports){
+'use strict';
+
+var indexOf = String.prototype.indexOf;
+
+module.exports = function (searchString/*, position*/) {
+	return indexOf.call(this, searchString, arguments[1]) > -1;
+};
+
+},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/string/is-string.js":[function(require,module,exports){
+'use strict';
+
+var toString = Object.prototype.toString
+
+  , id = toString.call('');
+
+module.exports = function (x) {
+	return (typeof x === 'string') || (x && (typeof x === 'object') &&
+		((x instanceof String) || (toString.call(x) === id))) || false;
+};
+
+},{}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es6-symbol/index.js":[function(require,module,exports){
 'use strict';
 
 module.exports = require('./is-implemented')() ? Symbol : require('./polyfill');
@@ -1633,7 +1983,7 @@ StringIterator.prototype = Object.create(Iterator.prototype, {
 	toString: d(function () { return '[object String Iterator]'; })
 });
 
-},{"./":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/index.js","d":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/index.js","es5-ext/object/set-prototype-of":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/set-prototype-of/index.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/valid-iterable.js":[function(require,module,exports){
+},{"./":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/index.js","d":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/index.js","es5-ext/object/set-prototype-of":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/node_modules/es5-ext/object/set-prototype-of/index.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/valid-iterable.js":[function(require,module,exports){
 'use strict';
 
 var isIterable = require('./is-iterable');
@@ -1858,7 +2208,15 @@ module.exports = exports = function (o) {
 };
 exports.methods = methods;
 
-},{"d":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/index.js","es5-ext/object/valid-callable":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/valid-callable.js"}],"/home/kory/dev/enti/node_modules/es6-set/polyfill.js":[function(require,module,exports){
+},{"d":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/index.js","es5-ext/object/valid-callable":"/home/kory/dev/enti/node_modules/es6-set/node_modules/event-emitter/node_modules/es5-ext/object/valid-callable.js"}],"/home/kory/dev/enti/node_modules/es6-set/node_modules/event-emitter/node_modules/es5-ext/object/valid-callable.js":[function(require,module,exports){
+'use strict';
+
+module.exports = function (fn) {
+	if (typeof fn !== 'function') throw new TypeError(fn + " is not a function");
+	return fn;
+};
+
+},{}],"/home/kory/dev/enti/node_modules/es6-set/polyfill.js":[function(require,module,exports){
 'use strict';
 
 var clear          = require('es5-ext/array/#/clear')
@@ -2543,7 +2901,7 @@ module.exports = function (obj) {
 	return new ArrayIterator(obj);
 };
 
-},{"./array":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/array.js","./string":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/string.js","./valid-iterable":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/valid-iterable.js","es5-ext/string/is-string":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es5-ext/string/is-string.js","es6-symbol":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/node_modules/es6-symbol/index.js"}],"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/index.js":[function(require,module,exports){
+},{"./array":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/array.js","./string":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/string.js","./valid-iterable":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/valid-iterable.js","es5-ext/string/is-string":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es5-ext/string/is-string.js","es6-symbol":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-symbol/index.js"}],"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/index.js":[function(require,module,exports){
 'use strict';
 
 var clear    = require('es5-ext/array/#/clear')
@@ -2635,7 +2993,7 @@ defineProperty(Iterator.prototype, Symbol.iterator, d(function () {
 }));
 defineProperty(Iterator.prototype, Symbol.toStringTag, d('', 'Iterator'));
 
-},{"d":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/d/index.js","d/auto-bind":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/d/auto-bind.js","es5-ext/array/#/clear":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es5-ext/array/#/clear.js","es5-ext/object/assign":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es5-ext/object/assign/index.js","es5-ext/object/valid-callable":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es5-ext/object/valid-callable.js","es5-ext/object/valid-value":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es5-ext/object/valid-value.js","es6-symbol":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/node_modules/es6-symbol/index.js"}],"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/is-iterable.js":[function(require,module,exports){
+},{"d":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/d/index.js","d/auto-bind":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/d/auto-bind.js","es5-ext/array/#/clear":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es5-ext/array/#/clear.js","es5-ext/object/assign":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es5-ext/object/assign/index.js","es5-ext/object/valid-callable":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es5-ext/object/valid-callable.js","es5-ext/object/valid-value":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es5-ext/object/valid-value.js","es6-symbol":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-symbol/index.js"}],"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/is-iterable.js":[function(require,module,exports){
 'use strict';
 
 var isString       = require('es5-ext/string/is-string')
@@ -2650,12 +3008,61 @@ module.exports = function (value) {
 	return (typeof value[iteratorSymbol] === 'function');
 };
 
-},{"es5-ext/string/is-string":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es5-ext/string/is-string.js","es6-symbol":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/node_modules/es6-symbol/index.js"}],"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/node_modules/es6-symbol/index.js":[function(require,module,exports){
+},{"es5-ext/string/is-string":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es5-ext/string/is-string.js","es6-symbol":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-symbol/index.js"}],"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/string.js":[function(require,module,exports){
+// Thanks @mathiasbynens
+// http://mathiasbynens.be/notes/javascript-unicode#iterating-over-symbols
+
+'use strict';
+
+var setPrototypeOf = require('es5-ext/object/set-prototype-of')
+  , d              = require('d')
+  , Iterator       = require('./')
+
+  , defineProperty = Object.defineProperty
+  , StringIterator;
+
+StringIterator = module.exports = function (str) {
+	if (!(this instanceof StringIterator)) return new StringIterator(str);
+	str = String(str);
+	Iterator.call(this, str);
+	defineProperty(this, '__length__', d('', str.length));
+
+};
+if (setPrototypeOf) setPrototypeOf(StringIterator, Iterator);
+
+StringIterator.prototype = Object.create(Iterator.prototype, {
+	constructor: d(StringIterator),
+	_next: d(function () {
+		if (!this.__list__) return;
+		if (this.__nextIndex__ < this.__length__) return this.__nextIndex__++;
+		this._unBind();
+	}),
+	_resolve: d(function (i) {
+		var char = this.__list__[i], code;
+		if (this.__nextIndex__ === this.__length__) return char;
+		code = char.charCodeAt(0);
+		if ((code >= 0xD800) && (code <= 0xDBFF)) return char + this.__list__[this.__nextIndex__++];
+		return char;
+	}),
+	toString: d(function () { return '[object String Iterator]'; })
+});
+
+},{"./":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/index.js","d":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/d/index.js","es5-ext/object/set-prototype-of":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es5-ext/object/set-prototype-of/index.js"}],"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/valid-iterable.js":[function(require,module,exports){
+'use strict';
+
+var isIterable = require('./is-iterable');
+
+module.exports = function (value) {
+	if (!isIterable(value)) throw new TypeError(value + " is not iterable");
+	return value;
+};
+
+},{"./is-iterable":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/is-iterable.js"}],"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-symbol/index.js":[function(require,module,exports){
 'use strict';
 
 module.exports = require('./is-implemented')() ? Symbol : require('./polyfill');
 
-},{"./is-implemented":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/node_modules/es6-symbol/is-implemented.js","./polyfill":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/node_modules/es6-symbol/polyfill.js"}],"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/node_modules/es6-symbol/is-implemented.js":[function(require,module,exports){
+},{"./is-implemented":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-symbol/is-implemented.js","./polyfill":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-symbol/polyfill.js"}],"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-symbol/is-implemented.js":[function(require,module,exports){
 'use strict';
 
 module.exports = function () {
@@ -2675,14 +3082,14 @@ module.exports = function () {
 	return true;
 };
 
-},{}],"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/node_modules/es6-symbol/is-symbol.js":[function(require,module,exports){
+},{}],"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-symbol/is-symbol.js":[function(require,module,exports){
 'use strict';
 
 module.exports = function (x) {
 	return (x && ((typeof x === 'symbol') || (x['@@toStringTag'] === 'Symbol'))) || false;
 };
 
-},{}],"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/node_modules/es6-symbol/polyfill.js":[function(require,module,exports){
+},{}],"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-symbol/polyfill.js":[function(require,module,exports){
 'use strict';
 
 var d              = require('d')
@@ -2761,7 +3168,7 @@ defineProperty(HiddenSymbol.prototype, Symbol.toPrimitive,
 defineProperty(HiddenSymbol.prototype, Symbol.toStringTag,
 	d('c', Symbol.prototype[Symbol.toStringTag]));
 
-},{"./validate-symbol":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/node_modules/es6-symbol/validate-symbol.js","d":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/d/index.js"}],"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/node_modules/es6-symbol/validate-symbol.js":[function(require,module,exports){
+},{"./validate-symbol":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-symbol/validate-symbol.js","d":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/d/index.js"}],"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-symbol/validate-symbol.js":[function(require,module,exports){
 'use strict';
 
 var isSymbol = require('./is-symbol');
@@ -2771,137 +3178,7 @@ module.exports = function (value) {
 	return value;
 };
 
-},{"./is-symbol":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/node_modules/es6-symbol/is-symbol.js"}],"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/string.js":[function(require,module,exports){
-// Thanks @mathiasbynens
-// http://mathiasbynens.be/notes/javascript-unicode#iterating-over-symbols
-
-'use strict';
-
-var setPrototypeOf = require('es5-ext/object/set-prototype-of')
-  , d              = require('d')
-  , Iterator       = require('./')
-
-  , defineProperty = Object.defineProperty
-  , StringIterator;
-
-StringIterator = module.exports = function (str) {
-	if (!(this instanceof StringIterator)) return new StringIterator(str);
-	str = String(str);
-	Iterator.call(this, str);
-	defineProperty(this, '__length__', d('', str.length));
-
-};
-if (setPrototypeOf) setPrototypeOf(StringIterator, Iterator);
-
-StringIterator.prototype = Object.create(Iterator.prototype, {
-	constructor: d(StringIterator),
-	_next: d(function () {
-		if (!this.__list__) return;
-		if (this.__nextIndex__ < this.__length__) return this.__nextIndex__++;
-		this._unBind();
-	}),
-	_resolve: d(function (i) {
-		var char = this.__list__[i], code;
-		if (this.__nextIndex__ === this.__length__) return char;
-		code = char.charCodeAt(0);
-		if ((code >= 0xD800) && (code <= 0xDBFF)) return char + this.__list__[this.__nextIndex__++];
-		return char;
-	}),
-	toString: d(function () { return '[object String Iterator]'; })
-});
-
-},{"./":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/index.js","d":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/d/index.js","es5-ext/object/set-prototype-of":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es5-ext/object/set-prototype-of/index.js"}],"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/valid-iterable.js":[function(require,module,exports){
-'use strict';
-
-var isIterable = require('./is-iterable');
-
-module.exports = function (value) {
-	if (!isIterable(value)) throw new TypeError(value + " is not iterable");
-	return value;
-};
-
-},{"./is-iterable":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/is-iterable.js"}],"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-symbol/index.js":[function(require,module,exports){
-'use strict';
-
-module.exports = require('./is-implemented')() ? Symbol : require('./polyfill');
-
-},{"./is-implemented":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-symbol/is-implemented.js","./polyfill":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-symbol/polyfill.js"}],"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-symbol/is-implemented.js":[function(require,module,exports){
-'use strict';
-
-module.exports = function () {
-	var symbol;
-	if (typeof Symbol !== 'function') return false;
-	symbol = Symbol('test symbol');
-	try { String(symbol); } catch (e) { return false; }
-	if (typeof Symbol.iterator === 'symbol') return true;
-
-	// Return 'true' for polyfills
-	if (typeof Symbol.isConcatSpreadable !== 'object') return false;
-	if (typeof Symbol.isRegExp !== 'object') return false;
-	if (typeof Symbol.iterator !== 'object') return false;
-	if (typeof Symbol.toPrimitive !== 'object') return false;
-	if (typeof Symbol.toStringTag !== 'object') return false;
-	if (typeof Symbol.unscopables !== 'object') return false;
-
-	return true;
-};
-
-},{}],"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-symbol/polyfill.js":[function(require,module,exports){
-'use strict';
-
-var d = require('d')
-
-  , create = Object.create, defineProperties = Object.defineProperties
-  , generateName, Symbol;
-
-generateName = (function () {
-	var created = create(null);
-	return function (desc) {
-		var postfix = 0;
-		while (created[desc + (postfix || '')]) ++postfix;
-		desc += (postfix || '');
-		created[desc] = true;
-		return '@@' + desc;
-	};
-}());
-
-module.exports = Symbol = function (description) {
-	var symbol;
-	if (this instanceof Symbol) {
-		throw new TypeError('TypeError: Symbol is not a constructor');
-	}
-	symbol = create(Symbol.prototype);
-	description = (description === undefined ? '' : String(description));
-	return defineProperties(symbol, {
-		__description__: d('', description),
-		__name__: d('', generateName(description))
-	});
-};
-
-Object.defineProperties(Symbol, {
-	create: d('', Symbol('create')),
-	hasInstance: d('', Symbol('hasInstance')),
-	isConcatSpreadable: d('', Symbol('isConcatSpreadable')),
-	isRegExp: d('', Symbol('isRegExp')),
-	iterator: d('', Symbol('iterator')),
-	toPrimitive: d('', Symbol('toPrimitive')),
-	toStringTag: d('', Symbol('toStringTag')),
-	unscopables: d('', Symbol('unscopables'))
-});
-
-defineProperties(Symbol.prototype, {
-	properToString: d(function () {
-		return 'Symbol (' + this.__description__ + ')';
-	}),
-	toString: d('', function () { return this.__name__; })
-});
-Object.defineProperty(Symbol.prototype, Symbol.toPrimitive, d('',
-	function (hint) {
-		throw new TypeError("Conversion of symbol objects is not allowed");
-	}));
-Object.defineProperty(Symbol.prototype, Symbol.toStringTag, d('c', 'Symbol'));
-
-},{"d":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/d/index.js"}],"/home/kory/dev/enti/node_modules/es6-weak-map/polyfill.js":[function(require,module,exports){
+},{"./is-symbol":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-symbol/is-symbol.js"}],"/home/kory/dev/enti/node_modules/es6-weak-map/polyfill.js":[function(require,module,exports){
 'use strict';
 
 var setPrototypeOf    = require('es5-ext/object/set-prototype-of')
@@ -4656,6 +4933,30 @@ tape('Late updates', function(t){
     });
 
     Enti.remove(model1._model.data.rows, 1);
+});
+
+tape('is attached', function(t){
+    t.plan(2);
+
+    var model = new Enti(false);
+
+    t.notOk(model.isAttached());
+
+    model.attach();
+
+    t.ok(model.isAttached());
+});
+
+tape('late attach events', function(t){
+    t.plan(1);
+
+    var model = new Enti(false);
+
+    model.on('foo', t.pass);
+
+    model.attach(model.get('.'));
+
+    model.set('foo', 'bar');
 });
 },{"../":"/home/kory/dev/enti/index.js","tape":"/home/kory/dev/enti/node_modules/tape/index.js"}],"/usr/lib/node_modules/watchify/node_modules/browserify/lib/_empty.js":[function(require,module,exports){
 
