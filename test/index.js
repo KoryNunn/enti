@@ -351,6 +351,20 @@ tape('deep events wildcard', function(t){
 });
 
 tape('any depth events wildcard', function(t){
+    t.plan(2);
+
+    var model1 = new Enti({a:{b:{c:1}}}),
+        model2 = new Enti(model1._model.a.b);
+
+    model1.on('**', function(value, event){
+        t.pass();
+    });
+
+    model2.set('c', 2);
+    model2.set('d', 3);
+});
+
+tape('any depth events wildcard 2', function(t){
     t.plan(1);
 
     var model1 = new Enti({a:{b:{c:1}}}),
@@ -361,6 +375,7 @@ tape('any depth events wildcard', function(t){
     });
 
     model2.set('c', 2);
+    model2.set('d', 3);
 });
 
 tape('any depth events wildcard deeper', function(t){

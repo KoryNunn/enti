@@ -19,7 +19,8 @@ function matchDeep(path){
 }
 
 function isDeep(path){
-    return ~(path + '').indexOf('.');
+    var stringPath = (path + '');
+    return ~stringPath.indexOf('.') || ~stringPath.indexOf('**');
 }
 
 var attachedEnties = new Set(),
@@ -106,7 +107,9 @@ function trackObjects(eventName, weakMap, handler, object, key, path){
             return;
         }
 
-        handler(value, event, emitKey);
+        if(key !== '**' || !path){
+            handler(value, event, emitKey);
+        }
     }
 
     function trackKeys(target, root, rest){
