@@ -9,6 +9,14 @@ tape('get', function(t){
     t.equal(model.get('a'), 1);
 });
 
+tape('get dot', function(t){
+    t.plan(1);
+
+    var model = new Enti({a:1});
+
+    t.equal(model.get('.'), model._model);
+});
+
 tape('get deep', function(t){
     t.plan(1);
 
@@ -31,6 +39,18 @@ tape('get filter', function(t){
     });
 
     t.equal(model.get('a|b'), model.get('a'));
+});
+
+tape('get dot filter', function(t){
+    t.plan(1);
+
+    var model = new Enti({
+        a:{
+            b: 1
+        }
+    });
+
+    t.equal(model.get('.|a'), model._model);
 });
 
 tape('get number', function(t){

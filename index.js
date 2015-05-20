@@ -295,12 +295,13 @@ Enti.get = function(model, key){
     if(!model || typeof model !== 'object'){
         return;
     }
+    
+    key = getTargetKey(key);
 
     if(key === '.'){
         return model;
     }
 
-    key = getTargetKey(key);
 
     var path = leftAndRest(key);
     if(Array.isArray(path)){
