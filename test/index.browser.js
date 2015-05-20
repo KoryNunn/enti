@@ -7,21 +7,25 @@ function toArray(items){
     return Array.prototype.slice.call(items);
 }
 
-function lastKey(path){
-    path+='';
-    var match = path.match(/(?:.*\.)?([^.]*)$/);
-    return match && match[1];
-}
-
-var dotRegex = /\./i;
+var deepRegex = /[|.]/i;
 
 function matchDeep(path){
-    return (path + '').match(dotRegex);
+    return (path + '').match(deepRegex);
 }
 
 function isDeep(path){
     var stringPath = (path + '');
-    return ~stringPath.indexOf('.') || ~stringPath.indexOf('**');
+    return ~stringPath.indexOf('.') || ~stringPath.indexOf('**') || ~stringPath.indexOf('|');
+}
+
+function isFilterPath(path){
+    var stringPath = (path + '');
+    return ~stringPath.indexOf('|');
+}
+
+function getTargetKey(path){
+    var stringPath = (path + '');
+    return stringPath.split('|').shift();
 }
 
 var attachedEnties = new Set(),
@@ -200,6 +204,12 @@ function trackPath(enti, eventName){
                 return;
             }
             enti._emittedEvents[eventName] = emitKey;
+
+            if(isFilterPath(eventName)){
+                enti.emit(eventName, enti.get(getTargetKey(eventName)), event);
+                return;
+            }
+
             enti.emit(eventName, value, event);
         });
     }
@@ -291,6 +301,8 @@ Enti.get = function(model, key){
         return model;
     }
 
+    key = getTargetKey(key);
+
     var path = leftAndRest(key);
     if(Array.isArray(path)){
         return Enti.get(model[path[0]], path[1]);
@@ -302,6 +314,8 @@ Enti.set = function(model, key, value){
     if(!model || typeof model !== 'object'){
         return;
     }
+    
+    key = getTargetKey(key);
 
     var path = leftAndRest(key);
     if(Array.isArray(path)){
@@ -4454,6 +4468,38 @@ tape('get', function(t){
     t.equal(model.get('a'), 1);
 });
 
+tape('get deep', function(t){
+    t.plan(1);
+
+    var model = new Enti({
+        a:{
+            b: 1
+        }
+    });
+
+    t.equal(model.get('a.b'), 1);
+});
+
+tape('get filter', function(t){
+    t.plan(1);
+
+    var model = new Enti({
+        a:{
+            b: 1
+        }
+    });
+
+    t.equal(model.get('a|b'), model.get('a'));
+});
+
+tape('get number', function(t){
+    t.plan(1);
+
+    var model = new Enti([1,2,3]);
+
+    t.equal(model.get(2), 3);
+});
+
 tape('set', function(t){
     t.plan(1);
 
@@ -4461,6 +4507,37 @@ tape('set', function(t){
 
     model.set('a', 1);
     t.equal(model.get('a'), 1);
+});
+
+tape('set deep', function(t){
+    t.plan(1);
+
+    var model = new Enti({
+        a: {}
+    });
+
+    model.set('a.b', 1);
+    t.equal(model.get('a.b'), 1);
+});
+
+tape('set filter', function(t){
+    t.plan(1);
+
+    var model = new Enti({
+        a: {}
+    });
+
+    model.set('a|b', 1);
+    t.equal(model.get('a'), 1);
+});
+
+tape('set number', function(t){
+    t.plan(1);
+
+    var model = new Enti([1,2,3]);
+
+    model.set(2, 4);
+    t.equal(model.get(2), 4);
 });
 
 tape('events', function(t){
@@ -4975,6 +5052,56 @@ tape('late attach events', function(t){
     model.attach(model.get('.'));
 
     model.set('foo', 'bar');
+});
+
+tape('event filters', function(t){
+    t.plan(1);
+
+    var model = new Enti({
+        foo:{
+            bar:1
+        }
+    });
+
+    model.on('foo|bar', function(value){
+        t.equal(value, model.get('foo'));
+    });
+
+    model.set('foo.bar', 2);
+});
+
+tape('event filters wildcard', function(t){
+    t.plan(1);
+
+    var model = new Enti({
+        foo:{
+            bar:1
+        }
+    });
+
+    model.on('foo|*', function(value){
+        t.equal(value, model.get('foo'));
+    });
+
+    model.set('foo.bar', 2);
+});
+
+tape('event filters deep wildcard', function(t){
+    t.plan(1);
+
+    var model = new Enti({
+        foo:{
+            bar:{
+                baz: 1
+            }
+        }
+    });
+
+    model.on('foo|**', function(value){
+        t.equal(value, model.get('foo'));
+    });
+
+    model.set('foo.bar.baz', 2);
 });
 },{"../":"/home/kory/dev/enti/index.js","tape":"/home/kory/dev/enti/node_modules/tape/index.js"}],"/usr/lib/node_modules/watchify/node_modules/browserify/lib/_empty.js":[function(require,module,exports){
 

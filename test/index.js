@@ -9,6 +9,38 @@ tape('get', function(t){
     t.equal(model.get('a'), 1);
 });
 
+tape('get deep', function(t){
+    t.plan(1);
+
+    var model = new Enti({
+        a:{
+            b: 1
+        }
+    });
+
+    t.equal(model.get('a.b'), 1);
+});
+
+tape('get filter', function(t){
+    t.plan(1);
+
+    var model = new Enti({
+        a:{
+            b: 1
+        }
+    });
+
+    t.equal(model.get('a|b'), model.get('a'));
+});
+
+tape('get number', function(t){
+    t.plan(1);
+
+    var model = new Enti([1,2,3]);
+
+    t.equal(model.get(2), 3);
+});
+
 tape('set', function(t){
     t.plan(1);
 
@@ -16,6 +48,37 @@ tape('set', function(t){
 
     model.set('a', 1);
     t.equal(model.get('a'), 1);
+});
+
+tape('set deep', function(t){
+    t.plan(1);
+
+    var model = new Enti({
+        a: {}
+    });
+
+    model.set('a.b', 1);
+    t.equal(model.get('a.b'), 1);
+});
+
+tape('set filter', function(t){
+    t.plan(1);
+
+    var model = new Enti({
+        a: {}
+    });
+
+    model.set('a|b', 1);
+    t.equal(model.get('a'), 1);
+});
+
+tape('set number', function(t){
+    t.plan(1);
+
+    var model = new Enti([1,2,3]);
+
+    model.set(2, 4);
+    t.equal(model.get(2), 4);
 });
 
 tape('events', function(t){
@@ -530,4 +593,54 @@ tape('late attach events', function(t){
     model.attach(model.get('.'));
 
     model.set('foo', 'bar');
+});
+
+tape('event filters', function(t){
+    t.plan(1);
+
+    var model = new Enti({
+        foo:{
+            bar:1
+        }
+    });
+
+    model.on('foo|bar', function(value){
+        t.equal(value, model.get('foo'));
+    });
+
+    model.set('foo.bar', 2);
+});
+
+tape('event filters wildcard', function(t){
+    t.plan(1);
+
+    var model = new Enti({
+        foo:{
+            bar:1
+        }
+    });
+
+    model.on('foo|*', function(value){
+        t.equal(value, model.get('foo'));
+    });
+
+    model.set('foo.bar', 2);
+});
+
+tape('event filters deep wildcard', function(t){
+    t.plan(1);
+
+    var model = new Enti({
+        foo:{
+            bar:{
+                baz: 1
+            }
+        }
+    });
+
+    model.on('foo|**', function(value){
+        t.equal(value, model.get('foo'));
+    });
+
+    model.set('foo.bar.baz', 2);
 });
