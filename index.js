@@ -31,11 +31,18 @@ var attachedEnties = new Set(),
     trackedObjects = new WeakMap();
 
 function leftAndRest(path){
-    var match = matchDeep(path);
-    if(match){
-        return [path.slice(0, match.index), path.slice(match.index+1)];
+    var stringPath = (path + '');
+
+    // Special case when you want to filter on self (.)
+    if(stringPath.slice(0,2) === '.|'){
+        return ['.', stringPath.slice(2)];
     }
-    return path;
+
+    var match = matchDeep(stringPath);
+    if(match){
+        return [stringPath.slice(0, match.index), stringPath.slice(match.index+1)];
+    }
+    return stringPath;
 }
 
 function isWildcardKey(key){
@@ -151,6 +158,11 @@ function trackObjects(eventName, weakMap, handler, object, key, path){
     }else{
         root = rootAndRest[0];
         rest = rootAndRest[1];
+
+        // If the root is '.', watch for events on *
+        if(root === '.'){
+            root = '*';
+        }
     }
 
     if(targetIsObject && isWildcardKey(root)){
@@ -295,7 +307,7 @@ Enti.get = function(model, key){
     if(!model || typeof model !== 'object'){
         return;
     }
-    
+
     key = getTargetKey(key);
 
     if(key === '.'){

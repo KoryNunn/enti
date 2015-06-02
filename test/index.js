@@ -664,3 +664,21 @@ tape('event filters deep wildcard', function(t){
 
     model.set('foo.bar.baz', 2);
 });
+
+tape('event filters self deep wildcard', function(t){
+    t.plan(1);
+
+    var model = new Enti({
+        foo:{
+            bar:{
+                baz: 1
+            }
+        }
+    });
+
+    model.on('.|**', function(data){
+        t.equal(data, model.get('.'));
+    });
+
+    model.set('foo.bar.baz', 2);
+});

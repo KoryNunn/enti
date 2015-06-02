@@ -32,11 +32,18 @@ var attachedEnties = new Set(),
     trackedObjects = new WeakMap();
 
 function leftAndRest(path){
-    var match = matchDeep(path);
-    if(match){
-        return [path.slice(0, match.index), path.slice(match.index+1)];
+    var stringPath = (path + '');
+
+    // Special case when you want to filter on self (.)
+    if(stringPath.slice(0,2) === '.|'){
+        return ['.', stringPath.slice(2)];
     }
-    return path;
+
+    var match = matchDeep(stringPath);
+    if(match){
+        return [stringPath.slice(0, match.index), stringPath.slice(match.index+1)];
+    }
+    return stringPath;
 }
 
 function isWildcardKey(key){
@@ -152,6 +159,11 @@ function trackObjects(eventName, weakMap, handler, object, key, path){
     }else{
         root = rootAndRest[0];
         rest = rootAndRest[1];
+
+        // If the root is '.', watch for events on *
+        if(root === '.'){
+            root = '*';
+        }
     }
 
     if(targetIsObject && isWildcardKey(root)){
@@ -297,11 +309,12 @@ Enti.get = function(model, key){
         return;
     }
 
+    key = getTargetKey(key);
+
     if(key === '.'){
         return model;
     }
 
-    key = getTargetKey(key);
 
     var path = leftAndRest(key);
     if(Array.isArray(path)){
@@ -4468,6 +4481,14 @@ tape('get', function(t){
     t.equal(model.get('a'), 1);
 });
 
+tape('get dot', function(t){
+    t.plan(1);
+
+    var model = new Enti({a:1});
+
+    t.equal(model.get('.'), model._model);
+});
+
 tape('get deep', function(t){
     t.plan(1);
 
@@ -4490,6 +4511,18 @@ tape('get filter', function(t){
     });
 
     t.equal(model.get('a|b'), model.get('a'));
+});
+
+tape('get dot filter', function(t){
+    t.plan(1);
+
+    var model = new Enti({
+        a:{
+            b: 1
+        }
+    });
+
+    t.equal(model.get('.|a'), model._model);
 });
 
 tape('get number', function(t){
@@ -5099,6 +5132,24 @@ tape('event filters deep wildcard', function(t){
 
     model.on('foo|**', function(value){
         t.equal(value, model.get('foo'));
+    });
+
+    model.set('foo.bar.baz', 2);
+});
+
+tape('event filters self deep wildcard', function(t){
+    t.plan(1);
+
+    var model = new Enti({
+        foo:{
+            bar:{
+                baz: 1
+            }
+        }
+    });
+
+    model.on('.|**', function(data){
+        t.equal(data, model.get('.'));
     });
 
     model.set('foo.bar.baz', 2);
