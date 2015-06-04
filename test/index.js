@@ -280,6 +280,21 @@ tape('insert self', function(t){
     model.insert(5, 1);
 });
 
+tape('move', function(t){
+    t.plan(1);
+
+    var object = [1,2,3],
+        model = new Enti(object);
+
+    model.on('*', function(value, event){
+        t.equal(object[0], 2);
+    });
+
+    model.attach(object);
+
+    model.move('0', 2);
+});
+
 tape('remove', function(t){
     t.plan(3);
 
