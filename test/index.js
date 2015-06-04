@@ -535,7 +535,7 @@ tape('wildcarded deep events with so many objects', function(t){
     t.equal(emits, 1);
 });
 */
-tape('deep events', function(t){
+tape('deep events 2', function(t){
     t.plan(1);
 
     var model1 = new Enti({a:{b:1}}),
@@ -543,9 +543,7 @@ tape('deep events', function(t){
         model3 = new Enti(model1._model.a.b);
 
     model1.on('a.b.c', function(value, event){
-        t.deepEqual(value, {
-            c:2
-        });
+        t.equal(value, 2);
     });
 
     model2.set('b', {

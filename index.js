@@ -17,6 +17,11 @@ function isDeep(path){
     return ~stringPath.indexOf('.') || ~stringPath.indexOf('**') || ~stringPath.indexOf('|');
 }
 
+function isWildcardPath(path){
+    var stringPath = (path + '');
+    return ~stringPath.indexOf('*');
+}
+
 function isFilterPath(path){
     var stringPath = (path + '');
     return ~stringPath.indexOf('|');
@@ -216,7 +221,7 @@ function trackPath(enti, eventName){
             }
             enti._emittedEvents[eventName] = emitKey;
 
-            if(isFilterPath(eventName)){
+            if(isDeep(eventName) && (isFilterPath(eventName) || !isWildcardPath(eventName))){
                 enti.emit(eventName, enti.get(getTargetKey(eventName)), event);
                 return;
             }
