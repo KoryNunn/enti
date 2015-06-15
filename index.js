@@ -204,8 +204,12 @@ function trackPath(enti, eventName){
 
     trackedPaths.entis.add(enti);
 
-    var handler = function(value, event, emitKey){
+    var handler = function(event, emitKey){
         trackedPaths.entis.forEach(function(enti){
+            if(enti._emittedEvents[eventName] === emitKey){
+                return;
+            }
+
             if(enti._model !== object){
                 trackedPaths.entis.delete(enti);
                 if(trackedPaths.entis.size === 0){
@@ -216,15 +220,11 @@ function trackPath(enti, eventName){
                 }
                 return;
             }
-            if(enti._emittedEvents[eventName] === emitKey){
-                return;
-            }
+            
             enti._emittedEvents[eventName] = emitKey;
 
-            if(isDeep(eventName) && (isFilterPath(eventName) || !isWildcardPath(eventName))){
-                enti.emit(eventName, enti.get(getTargetKey(eventName)), event);
-                return;
-            }
+            var targetKey = getTargetKey(eventName),
+                value = isWildcardPath(targetKey) ? undefined : enti.get(targetKey);
 
             enti.emit(eventName, value, event);
         });
@@ -273,7 +273,7 @@ function emitEvent(object, key, value, emitKey){
     if(trackedKeys[key]){
         trackedKeys[key].forEach(function(handler){
             if(trackedKeys[key].has(handler)){
-                handler(value, event, emitKey);
+                handler(event, emitKey);
             }
         });
     }
@@ -281,7 +281,7 @@ function emitEvent(object, key, value, emitKey){
     if(trackedKeys['*']){
         trackedKeys['*'].forEach(function(handler){
             if(trackedKeys['*'].has(handler)){
-                handler(value, event, emitKey);
+                handler(event, emitKey);
             }
         });
     }

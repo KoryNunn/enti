@@ -144,7 +144,7 @@ tape('events own keys modified', function(t){
     var model = new Enti({});
 
     model.on('*', function(value, event){
-        t.equal(value, 1);
+        t.equal(event.value, 1);
         t.equal(event.key, 'a');
     });
 
@@ -194,7 +194,7 @@ tape('push', function(t){
         itemsModel = new Enti(object.items);
 
     itemsModel.on('*', function(value, event){
-        t.deepEqual(value, 5);
+        t.deepEqual(event.value, 5);
         t.equal(event.key, 0);
     });
     model.on('items', function(value, event){
@@ -219,7 +219,7 @@ tape('push self', function(t){
         model = new Enti(object);
 
     model.on('*', function(value, event){
-        t.deepEqual(value, 5);
+        t.deepEqual(event.value, 5);
         t.equal(event.key, 0);
     });
     model.on('0', function(value, event){
@@ -242,7 +242,7 @@ tape('insert', function(t){
         itemsModel = new Enti(object.items);
 
     itemsModel.on('*', function(value, event){
-        t.deepEqual(value, 5);
+        t.deepEqual(event.value, 5);
         t.equal(event.key, 1);
     });
     model.on('items', function(value, event){
@@ -267,7 +267,7 @@ tape('insert self', function(t){
         model = new Enti(object);
 
     model.on('*', function(value, event){
-        t.deepEqual(value, 5);
+        t.deepEqual(event.value, 5);
         t.equal(event.key, 1);
     });
     model.on('1', function(value, event){
@@ -302,7 +302,7 @@ tape('remove', function(t){
         model = new Enti(object);
 
     model.on('*', function(value, event){
-        t.equal(value, 2);
+        t.equal(event.value, 2);
         t.equal(event.key, 'length');
     });
     model.on('length', function(value, event){

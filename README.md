@@ -39,6 +39,7 @@ Single level:
 ```
 model1.on('*', function(value){
     // object.<anything> changed. do something.
+    // value will be undefined, because the target path contains a wildcard.
 });
 
 model1.set('foo', 'baz');
@@ -48,6 +49,7 @@ Any level:
 ```
 model1.on('**', function(value){
     // object.<anything>.<anything>.<anything>.<etc...> changed. do something.
+    // value will be undefined, because the target path contains a wildcard.
 });
 
 model1.set('foo', 'baz');
@@ -57,8 +59,9 @@ Which can be combined with other keys:
 
 
 ```
-model1.on('foo.*.bar', function(bar){
+model1.on('foo.*.bar', function(value){
     // object.foo.<anything>.bar changed. do something.
+    // value will be undefined, because the target path contains a wildcard.
 });
 
 model1.set('foo', 'baz', {
@@ -76,6 +79,16 @@ model1.on('foo|*.bar', function(foo){
 
 model1.set('foo', 'baz', {
     bar:1
+});
+```
+
+All handlers will be passed an event object with the object the event was raised on, and the key and value that caused the event:
+
+```
+model1.on('something', function(value, event){
+    event.key === 'something';
+    event.value === value;
+    event.target === model1.get('.');
 });
 ```
 
