@@ -404,7 +404,7 @@ tape('deep events', function(t){
 
     model2.set('b', 2);
 });
-/*
+
 tape('so many deep events', function(t){
     t.plan(1);
 
@@ -434,7 +434,7 @@ tape('so many deep events', function(t){
 
     t.equal(emits, 10000);
 });
-*/
+
 tape('deep events wildcard', function(t){
     t.plan(1);
 

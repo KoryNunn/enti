@@ -179,6 +179,61 @@ function trackObjects(eventName, weakMap, handler, object, key, path){
 
 var trackedEvents = new WeakMap();
 
+function thing(object, trackedPaths, eventName, event, emitKey){
+    return function(enti){
+        if(enti._emittedEvents[eventName] === emitKey){
+            return;
+        }
+
+        if(enti._model !== object){
+            trackedPaths.entis.delete(enti);
+            if(trackedPaths.entis.size === 0){
+                delete trackedObjectPaths[eventName];
+                if(!Object.keys(trackedObjectPaths).length){
+                    trackedEvents.delete(object);
+                }
+            }
+            return;
+        }
+        
+        enti._emittedEvents[eventName] = emitKey;
+
+        var targetKey = getTargetKey(eventName),
+            value = isWildcardPath(targetKey) ? undefined : enti.get(targetKey);
+
+        enti.emit(eventName, value, event);
+    };
+}
+
+function createHandler(enti, trackedObjectPaths, trackedPaths, eventName){
+    var oldModel = enti._model;
+    return function(event, emitKey){
+        trackedPaths.entis.forEach(function(enti){
+            if(enti._emittedEvents[eventName] === emitKey){
+                return;
+            }
+
+            if(enti._model !== oldModel){
+                trackedPaths.entis.delete(enti);
+                if(trackedPaths.entis.size === 0){
+                    delete trackedObjectPaths[eventName];
+                    if(!Object.keys(trackedObjectPaths).length){
+                        trackedEvents.delete(oldModel);
+                    }
+                }
+                return;
+            }
+            
+            enti._emittedEvents[eventName] = emitKey;
+
+            var targetKey = getTargetKey(eventName),
+                value = isWildcardPath(targetKey) ? undefined : enti.get(targetKey);
+
+            enti.emit(eventName, value, event);
+        });
+    };
+}
+
 function trackPath(enti, eventName){
     var object = enti._model,
         trackedObjectPaths = trackedEvents.get(object);
@@ -204,31 +259,7 @@ function trackPath(enti, eventName){
 
     trackedPaths.entis.add(enti);
 
-    var handler = function(event, emitKey){
-        trackedPaths.entis.forEach(function(enti){
-            if(enti._emittedEvents[eventName] === emitKey){
-                return;
-            }
-
-            if(enti._model !== object){
-                trackedPaths.entis.delete(enti);
-                if(trackedPaths.entis.size === 0){
-                    delete trackedObjectPaths[eventName];
-                    if(!Object.keys(trackedObjectPaths).length){
-                        trackedEvents.delete(object);
-                    }
-                }
-                return;
-            }
-            
-            enti._emittedEvents[eventName] = emitKey;
-
-            var targetKey = getTargetKey(eventName),
-                value = isWildcardPath(targetKey) ? undefined : enti.get(targetKey);
-
-            enti.emit(eventName, value, event);
-        });
-    }
+    var handler = createHandler(enti, trackedObjectPaths, trackedPaths, eventName);
 
     trackObjects(eventName, trackedPaths.trackedObjects, handler, {model:object}, 'model', eventName);
 }
@@ -252,11 +283,15 @@ function trackPaths(enti, target){
     }
 }
 
+function emitEntiEvent(object){
+    return function(enti){
+        trackPaths(enti, object);
+    }
+}
+
 function emitEvent(object, key, value, emitKey){
 
-    attachedEnties.forEach(function(enti){
-        trackPaths(enti, object);
-    });
+    attachedEnties.forEach(emitEntiEvent(object));
 
     var trackedKeys = trackedObjects.get(object);
 

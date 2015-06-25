@@ -18,6 +18,11 @@ function isDeep(path){
     return ~stringPath.indexOf('.') || ~stringPath.indexOf('**') || ~stringPath.indexOf('|');
 }
 
+function isWildcardPath(path){
+    var stringPath = (path + '');
+    return ~stringPath.indexOf('*');
+}
+
 function isFilterPath(path){
     var stringPath = (path + '');
     return ~stringPath.indexOf('|');
@@ -175,6 +180,61 @@ function trackObjects(eventName, weakMap, handler, object, key, path){
 
 var trackedEvents = new WeakMap();
 
+function thing(object, trackedPaths, eventName, event, emitKey){
+    return function(enti){
+        if(enti._emittedEvents[eventName] === emitKey){
+            return;
+        }
+
+        if(enti._model !== object){
+            trackedPaths.entis.delete(enti);
+            if(trackedPaths.entis.size === 0){
+                delete trackedObjectPaths[eventName];
+                if(!Object.keys(trackedObjectPaths).length){
+                    trackedEvents.delete(object);
+                }
+            }
+            return;
+        }
+        
+        enti._emittedEvents[eventName] = emitKey;
+
+        var targetKey = getTargetKey(eventName),
+            value = isWildcardPath(targetKey) ? undefined : enti.get(targetKey);
+
+        enti.emit(eventName, value, event);
+    };
+}
+
+function createHandler(enti, trackedObjectPaths, trackedPaths, eventName){
+    var oldModel = enti._model;
+    return function(event, emitKey){
+        trackedPaths.entis.forEach(function(enti){
+            if(enti._emittedEvents[eventName] === emitKey){
+                return;
+            }
+
+            if(enti._model !== oldModel){
+                trackedPaths.entis.delete(enti);
+                if(trackedPaths.entis.size === 0){
+                    delete trackedObjectPaths[eventName];
+                    if(!Object.keys(trackedObjectPaths).length){
+                        trackedEvents.delete(oldModel);
+                    }
+                }
+                return;
+            }
+            
+            enti._emittedEvents[eventName] = emitKey;
+
+            var targetKey = getTargetKey(eventName),
+                value = isWildcardPath(targetKey) ? undefined : enti.get(targetKey);
+
+            enti.emit(eventName, value, event);
+        });
+    };
+}
+
 function trackPath(enti, eventName){
     var object = enti._model,
         trackedObjectPaths = trackedEvents.get(object);
@@ -200,31 +260,7 @@ function trackPath(enti, eventName){
 
     trackedPaths.entis.add(enti);
 
-    var handler = function(value, event, emitKey){
-        trackedPaths.entis.forEach(function(enti){
-            if(enti._model !== object){
-                trackedPaths.entis.delete(enti);
-                if(trackedPaths.entis.size === 0){
-                    delete trackedObjectPaths[eventName];
-                    if(!Object.keys(trackedObjectPaths).length){
-                        trackedEvents.delete(object);
-                    }
-                }
-                return;
-            }
-            if(enti._emittedEvents[eventName] === emitKey){
-                return;
-            }
-            enti._emittedEvents[eventName] = emitKey;
-
-            if(isFilterPath(eventName)){
-                enti.emit(eventName, enti.get(getTargetKey(eventName)), event);
-                return;
-            }
-
-            enti.emit(eventName, value, event);
-        });
-    }
+    var handler = createHandler(enti, trackedObjectPaths, trackedPaths, eventName);
 
     trackObjects(eventName, trackedPaths.trackedObjects, handler, {model:object}, 'model', eventName);
 }
@@ -248,11 +284,15 @@ function trackPaths(enti, target){
     }
 }
 
+function emitEntiEvent(object){
+    return function(enti){
+        trackPaths(enti, object);
+    }
+}
+
 function emitEvent(object, key, value, emitKey){
 
-    attachedEnties.forEach(function(enti){
-        trackPaths(enti, object);
-    });
+    attachedEnties.forEach(emitEntiEvent(object));
 
     var trackedKeys = trackedObjects.get(object);
 
@@ -269,7 +309,7 @@ function emitEvent(object, key, value, emitKey){
     if(trackedKeys[key]){
         trackedKeys[key].forEach(function(handler){
             if(trackedKeys[key].has(handler)){
-                handler(value, event, emitKey);
+                handler(event, emitKey);
             }
         });
     }
@@ -277,7 +317,7 @@ function emitEvent(object, key, value, emitKey){
     if(trackedKeys['*']){
         trackedKeys['*'].forEach(function(handler){
             if(trackedKeys['*'].has(handler)){
-                handler(value, event, emitKey);
+                handler(event, emitKey);
             }
         });
     }
@@ -479,7 +519,7 @@ Enti.move = function(model, key, index){
 
     model.splice(index - (index > key ? 0 : 1), 0, item);
 
-    emit([model, index, item]);
+    emit([[model, index, item]]);
 };
 Enti.update = function(model, key, value){
     if(!model || typeof model !== 'object'){
@@ -2330,35 +2370,38 @@ defineProperty(SetPoly.prototype, Symbol.toStringTag, d('c', 'Set'));
 },{"./is-native-implemented":"/home/kory/dev/enti/node_modules/es6-set/is-native-implemented.js","./lib/iterator":"/home/kory/dev/enti/node_modules/es6-set/lib/iterator.js","d":"/home/kory/dev/enti/node_modules/es6-set/node_modules/d/index.js","es5-ext/array/#/clear":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/array/#/clear.js","es5-ext/array/#/e-index-of":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/array/#/e-index-of.js","es5-ext/object/set-prototype-of":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/set-prototype-of/index.js","es5-ext/object/valid-callable":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es5-ext/object/valid-callable.js","es6-iterator/for-of":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/for-of.js","es6-iterator/valid-iterable":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-iterator/valid-iterable.js","es6-symbol":"/home/kory/dev/enti/node_modules/es6-set/node_modules/es6-symbol/index.js","event-emitter":"/home/kory/dev/enti/node_modules/es6-set/node_modules/event-emitter/index.js"}],"/home/kory/dev/enti/node_modules/es6-weak-map/index.js":[function(require,module,exports){
 'use strict';
 
-module.exports = require('./is-implemented')() ?
-		WeakMap : require('./polyfill');
+module.exports = require('./is-implemented')() ? WeakMap : require('./polyfill');
 
 },{"./is-implemented":"/home/kory/dev/enti/node_modules/es6-weak-map/is-implemented.js","./polyfill":"/home/kory/dev/enti/node_modules/es6-weak-map/polyfill.js"}],"/home/kory/dev/enti/node_modules/es6-weak-map/is-implemented.js":[function(require,module,exports){
 'use strict';
 
 module.exports = function () {
-	var map;
+	var weakMap, x;
 	if (typeof WeakMap !== 'function') return false;
-	map = new WeakMap();
-	if (typeof map.set !== 'function') return false;
-	if (map.set({}, 1) !== map) return false;
-	if (typeof map.clear !== 'function') return false;
-	if (typeof map.delete !== 'function') return false;
-	if (typeof map.has !== 'function') return false;
+	if (String(WeakMap.prototype) !== '[object WeakMap]') return false;
+	try {
+		// WebKit doesn't support arguments and crashes
+		weakMap = new WeakMap([[x = {}, 'one'], [{}, 'two'], [{}, 'three']]);
+	} catch (e) {
+		return false;
+	}
+	if (typeof weakMap.set !== 'function') return false;
+	if (weakMap.set({}, 1) !== weakMap) return false;
+	if (typeof weakMap.delete !== 'function') return false;
+	if (typeof weakMap.has !== 'function') return false;
+	if (weakMap.get(x) !== 'one') return false;
 
 	return true;
 };
 
 },{}],"/home/kory/dev/enti/node_modules/es6-weak-map/is-native-implemented.js":[function(require,module,exports){
-// Exports true if environment provides native `WeakMap` implementation,
-// whatever that is.
+// Exports true if environment provides native `WeakMap` implementation, whatever that is.
 
 'use strict';
 
 module.exports = (function () {
-	if (typeof WeakMap === 'undefined') return false;
-	return (Object.prototype.toString.call(WeakMap.prototype) ===
-			'[object WeakMap]');
+	if (typeof WeakMap !== 'function') return false;
+	return (Object.prototype.toString.call(new WeakMap()) === '[object WeakMap]');
 }());
 
 },{}],"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/d/auto-bind.js":[function(require,module,exports){
@@ -2838,6 +2881,19 @@ module.exports = function (x) {
 		((x instanceof String) || (toString.call(x) === id))) || false;
 };
 
+},{}],"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es5-ext/string/random-uniq.js":[function(require,module,exports){
+'use strict';
+
+var generated = Object.create(null)
+
+  , random = Math.random;
+
+module.exports = function () {
+	var str;
+	do { str = random().toString(36).slice(2); } while (generated[str]);
+	return str;
+};
+
 },{}],"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/array.js":[function(require,module,exports){
 'use strict';
 
@@ -3214,41 +3270,35 @@ module.exports = function (value) {
 var setPrototypeOf    = require('es5-ext/object/set-prototype-of')
   , object            = require('es5-ext/object/valid-object')
   , value             = require('es5-ext/object/valid-value')
+  , randomUniq        = require('es5-ext/string/random-uniq')
   , d                 = require('d')
   , getIterator       = require('es6-iterator/get')
   , forOf             = require('es6-iterator/for-of')
   , toStringTagSymbol = require('es6-symbol').toStringTag
   , isNative          = require('./is-native-implemented')
 
-  , isArray = Array.isArray, defineProperty = Object.defineProperty, random = Math.random
-  , hasOwnProperty = Object.prototype.hasOwnProperty
-  , genId, WeakMapPoly;
-
-genId = (function () {
-	var generated = Object.create(null);
-	return function () {
-		var id;
-		do { id = random().toString(36).slice(2); } while (generated[id]);
-		generated[id] = true;
-		return id;
-	};
-}());
+  , isArray = Array.isArray, defineProperty = Object.defineProperty
+  , hasOwnProperty = Object.prototype.hasOwnProperty, getPrototypeOf = Object.getPrototypeOf
+  , WeakMapPoly;
 
 module.exports = WeakMapPoly = function (/*iterable*/) {
-	var iterable = arguments[0];
-	if (!(this instanceof WeakMapPoly)) return new WeakMapPoly(iterable);
-	if (this.__weakMapData__ !== undefined) {
-		throw new TypeError(this + " cannot be reinitialized");
+	var iterable = arguments[0], self;
+	if (!(this instanceof WeakMapPoly)) throw new TypeError('Constructor requires \'new\'');
+	if (isNative && setPrototypeOf && (WeakMap !== WeakMapPoly)) {
+		self = setPrototypeOf(new WeakMap(), getPrototypeOf(this));
+	} else {
+		self = this;
 	}
 	if (iterable != null) {
 		if (!isArray(iterable)) iterable = getIterator(iterable);
 	}
-	defineProperty(this, '__weakMapData__', d('c', '$weakMap$' + genId()));
-	if (!iterable) return;
+	defineProperty(self, '__weakMapData__', d('c', '$weakMap$' + randomUniq()));
+	if (!iterable) return self;
 	forOf(iterable, function (val) {
 		value(val);
-		this.set(val[0], val[1]);
-	}, this);
+		self.set(val[0], val[1]);
+	});
+	return self;
 };
 
 if (isNative) {
@@ -3259,9 +3309,6 @@ if (isNative) {
 }
 
 Object.defineProperties(WeakMapPoly.prototype, {
-	clear: d(function () {
-		defineProperty(this, '__weakMapData__', d('c', '$weakMap$' + genId()));
-	}),
 	delete: d(function (key) {
 		if (hasOwnProperty.call(object(key), this.__weakMapData__)) {
 			delete key[this.__weakMapData__];
@@ -3285,7 +3332,7 @@ Object.defineProperties(WeakMapPoly.prototype, {
 });
 defineProperty(WeakMapPoly.prototype, toStringTagSymbol, d('c', 'WeakMap'));
 
-},{"./is-native-implemented":"/home/kory/dev/enti/node_modules/es6-weak-map/is-native-implemented.js","d":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/d/index.js","es5-ext/object/set-prototype-of":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es5-ext/object/set-prototype-of/index.js","es5-ext/object/valid-object":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es5-ext/object/valid-object.js","es5-ext/object/valid-value":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es5-ext/object/valid-value.js","es6-iterator/for-of":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/for-of.js","es6-iterator/get":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/get.js","es6-symbol":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-symbol/index.js"}],"/home/kory/dev/enti/node_modules/tape/index.js":[function(require,module,exports){
+},{"./is-native-implemented":"/home/kory/dev/enti/node_modules/es6-weak-map/is-native-implemented.js","d":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/d/index.js","es5-ext/object/set-prototype-of":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es5-ext/object/set-prototype-of/index.js","es5-ext/object/valid-object":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es5-ext/object/valid-object.js","es5-ext/object/valid-value":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es5-ext/object/valid-value.js","es5-ext/string/random-uniq":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es5-ext/string/random-uniq.js","es6-iterator/for-of":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/for-of.js","es6-iterator/get":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-iterator/get.js","es6-symbol":"/home/kory/dev/enti/node_modules/es6-weak-map/node_modules/es6-symbol/index.js"}],"/home/kory/dev/enti/node_modules/tape/index.js":[function(require,module,exports){
 (function (process){
 var defined = require('defined');
 var createDefaultStream = require('./lib/default_stream');
@@ -4616,7 +4663,7 @@ tape('events own keys modified', function(t){
     var model = new Enti({});
 
     model.on('*', function(value, event){
-        t.equal(value, 1);
+        t.equal(event.value, 1);
         t.equal(event.key, 'a');
     });
 
@@ -4666,7 +4713,7 @@ tape('push', function(t){
         itemsModel = new Enti(object.items);
 
     itemsModel.on('*', function(value, event){
-        t.deepEqual(value, 5);
+        t.deepEqual(event.value, 5);
         t.equal(event.key, 0);
     });
     model.on('items', function(value, event){
@@ -4691,7 +4738,7 @@ tape('push self', function(t){
         model = new Enti(object);
 
     model.on('*', function(value, event){
-        t.deepEqual(value, 5);
+        t.deepEqual(event.value, 5);
         t.equal(event.key, 0);
     });
     model.on('0', function(value, event){
@@ -4714,7 +4761,7 @@ tape('insert', function(t){
         itemsModel = new Enti(object.items);
 
     itemsModel.on('*', function(value, event){
-        t.deepEqual(value, 5);
+        t.deepEqual(event.value, 5);
         t.equal(event.key, 1);
     });
     model.on('items', function(value, event){
@@ -4739,7 +4786,7 @@ tape('insert self', function(t){
         model = new Enti(object);
 
     model.on('*', function(value, event){
-        t.deepEqual(value, 5);
+        t.deepEqual(event.value, 5);
         t.equal(event.key, 1);
     });
     model.on('1', function(value, event){
@@ -4752,6 +4799,21 @@ tape('insert self', function(t){
     model.insert(5, 1);
 });
 
+tape('move', function(t){
+    t.plan(1);
+
+    var object = [1,2,3],
+        model = new Enti(object);
+
+    model.on('*', function(value, event){
+        t.equal(object[0], 2);
+    });
+
+    model.attach(object);
+
+    model.move('0', 2);
+});
+
 tape('remove', function(t){
     t.plan(3);
 
@@ -4759,7 +4821,7 @@ tape('remove', function(t){
         model = new Enti(object);
 
     model.on('*', function(value, event){
-        t.equal(value, 2);
+        t.equal(event.value, 2);
         t.equal(event.key, 'length');
     });
     model.on('length', function(value, event){
@@ -4861,7 +4923,7 @@ tape('deep events', function(t){
 
     model2.set('b', 2);
 });
-/*
+
 tape('so many deep events', function(t){
     t.plan(1);
 
@@ -4891,7 +4953,7 @@ tape('so many deep events', function(t){
 
     t.equal(emits, 10000);
 });
-*/
+
 tape('deep events wildcard', function(t){
     t.plan(1);
 
@@ -5007,7 +5069,7 @@ tape('wildcarded deep events with so many objects', function(t){
     t.equal(emits, 1);
 });
 */
-tape('deep events', function(t){
+tape('deep events 2', function(t){
     t.plan(1);
 
     var model1 = new Enti({a:{b:1}}),
@@ -5015,9 +5077,7 @@ tape('deep events', function(t){
         model3 = new Enti(model1._model.a.b);
 
     model1.on('a.b.c', function(value, event){
-        t.deepEqual(value, {
-            c:2
-        });
+        t.equal(value, 2);
     });
 
     model2.set('b', {
