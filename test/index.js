@@ -340,7 +340,7 @@ tape('detach during event', function(t){
     t.plan(2);
 
     var object = {},
-        model1 = new Enti(object);
+        model1 = new Enti(object),
         model2 = new Enti(object);
 
     model1.on('foo', function(value, event){
@@ -359,7 +359,7 @@ tape('detach other during event', function(t){
     t.plan(1);
 
     var object = {},
-        model1 = new Enti(object);
+        model1 = new Enti(object),
         model2 = new Enti(object);
 
     model1.on('foo', function(value, event){
@@ -554,7 +554,7 @@ tape('deep events 2', function(t){
     t.plan(1);
 
     var model1 = new Enti({a:{b:1}}),
-        model2 = new Enti(model1._model.a);
+        model2 = new Enti(model1._model.a),
         model3 = new Enti(model1._model.a.b);
 
     model1.on('a.b.c', function(value, event){
