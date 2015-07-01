@@ -696,3 +696,36 @@ tape('event filters self deep wildcard', function(t){
 
     model.set('foo.bar.baz', 2);
 });
+
+tape('set enti instance as data within enti', function(t){
+    t.plan(2);
+
+    var targetModel = new Enti({}),
+        model = new Enti({
+            foo: null
+        });
+
+    model.on('foo|**', function(foo){
+        t.equal(foo, targetModel);
+    });
+
+    model.set('foo', targetModel);
+
+    targetModel.set('bar', 'baz');
+});
+
+tape('set enti instance as data of its self..', function(t){
+    t.plan(2);
+
+    var model = new Enti({
+            foo: null
+        });
+
+    model.on('.|**', function(data){
+        t.equal(data.foo, model);
+    });
+
+    model.set('foo', model);
+
+    model.set('bar', 'baz');
+});
