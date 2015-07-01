@@ -186,7 +186,7 @@ function createHandler(enti, trackedObjectPaths, trackedPaths, eventName){
                 }
                 return;
             }
-            
+
             enti._emittedEvents[eventName] = emitKey;
 
             var targetKey = getTargetKey(eventName),
@@ -214,9 +214,7 @@ function trackPath(enti, eventName){
             trackedObjects: new WeakMap()
         };
         trackedObjectPaths[eventName] = trackedPaths;
-    }
-
-    if(trackedPaths.entis.has(enti)){
+    }else if(trackedPaths.entis.has(enti)){
         return;
     }
 
@@ -315,7 +313,7 @@ Enti.set = function(model, key, value){
     if(!model || typeof model !== 'object'){
         return;
     }
-    
+
     key = getTargetKey(key);
 
     var path = leftAndRest(key);
