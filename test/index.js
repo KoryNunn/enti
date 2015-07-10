@@ -489,6 +489,7 @@ tape('any depth events wildcard deeper', function(t){
 
     model2.set('c', 2);
 });
+
 /*
 tape('so many wildcarded deep events', function(t){
     t.plan(1);
@@ -503,23 +504,28 @@ tape('so many wildcarded deep events', function(t){
 
     var emits = 0;
 
-    var start = Date.now();
+    function addEmit(){
+        emits++;
+    }
+        
+    console.time('attach');
 
     for(var i = 0; i < 10000; i++){
-        new Enti(model).on('**.c', function(){
-            emits++;
-        });
+        new Enti(model).on('**.c', addEmit);
     }
 
-    console.log('attach', Date.now() - start);
+    console.timeEnd('attach');
+
+    console.time('trigger');
 
     Enti.set(model, 'a.b.c', 2);
 
-    console.log('triggered', Date.now() - start);
+    console.timeEnd('trigger');
 
     t.equal(emits, 10000);
 });
 */
+
 /*
 tape('wildcarded deep events with so many objects', function(t){
     t.plan(1);

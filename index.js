@@ -526,16 +526,12 @@ Enti.prototype.attach = function(model){
         this.detach();
     }
 
-    if(!modifiedEnties.has(this)){
-        modifiedEnties.add(this);
-    }
+    modifiedEnties.add(this);
     this._attached = true;
     this._model = model;
 };
 Enti.prototype.detach = function(){
-    if(modifiedEnties.has(this)){
-        modifiedEnties.delete(this);
-    }
+    modifiedEnties.delete(this);
 
     this._emittedEvents = {};
     this._model = {};
