@@ -1,6 +1,4 @@
-var EventEmitter = require('events').EventEmitter,
-    Set = require('es6-set'),
-    WeakMap = require('es6-weak-map');
+var EventEmitter = require('events').EventEmitter;
 
 function toArray(items){
     return Array.prototype.slice.call(items);

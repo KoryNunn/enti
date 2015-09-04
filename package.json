@@ -14,8 +14,6 @@
   "license": "ISC",
   "dependencies": {
     "deep-equal": "^1.0.0",
-    "es6-set": "^0.1.1",
-    "es6-weak-map": "^1.0.2",
     "flat-merge": "^1.0.0"
   },
   "devDependencies": {
