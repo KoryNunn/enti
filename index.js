@@ -527,6 +527,7 @@ Enti.prototype.attach = function(model){
     modifiedEnties.add(this);
     this._attached = true;
     this._model = model;
+    this.emit('attach', model);
 };
 Enti.prototype.detach = function(){
     modifiedEnties.delete(this);
@@ -534,10 +535,12 @@ Enti.prototype.detach = function(){
     this._emittedEvents = {};
     this._model = {};
     this._attached = false;
+    this.emit('detach');
 };
 Enti.prototype.destroy = function(){
     this.detach();
     this._events = null;
+    this.emit('destroy');
 };
 Enti.prototype.get = function(key){
     return Enti.get(this._model, key);
