@@ -518,6 +518,7 @@ Enti.update = function(model, key, value){
     emit(events);
 };
 Enti.prototype = Object.create(EventEmitter.prototype);
+Enti.prototype._maxListeners = 100;
 Enti.prototype.constructor = Enti;
 Enti.prototype.attach = function(model){
     if(this._model !== model){
