@@ -20,8 +20,12 @@ function getTargetKey(path){
     return stringPath.split('|').shift();
 }
 
-var modifiedEnties = new Set(),
-    trackedObjects = new WeakMap();
+var eventSystemVersion = 1,
+    globalKey = '_entiEventState' + eventSystemVersion
+    globalState = global[globalKey] = global[globalKey] || {};
+
+var modifiedEnties = globalState.modifiedEnties = globalState.modifiedEnties || new Set(),
+    trackedObjects = globalState.trackedObjects = globalState.trackedObjects || new WeakMap();
 
 function leftAndRest(path){
     var stringPath = (path + '');
