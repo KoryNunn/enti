@@ -507,7 +507,7 @@ tape('so many wildcarded deep events', function(t){
     function addEmit(){
         emits++;
     }
-        
+
     console.time('attach');
 
     for(var i = 0; i < 10000; i++){
@@ -734,4 +734,12 @@ tape('set enti instance as data of its self..', function(t){
     model.set('foo', model);
 
     model.set('bar', 'baz');
+});
+
+tape('isEnti', function(t){
+    t.plan(1);
+
+    var model = new Enti();
+
+    t.ok(Enti.isEnti(model));
 });

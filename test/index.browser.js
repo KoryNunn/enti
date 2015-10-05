@@ -24,7 +24,9 @@ function getTargetKey(path){
 
 var eventSystemVersion = 1,
     globalKey = '_entiEventState' + eventSystemVersion
-    globalState = global[globalKey] = global[globalKey] || {};
+    globalState = global[globalKey] = global[globalKey] || {
+        instances: []
+    };
 
 var modifiedEnties = globalState.modifiedEnties = globalState.modifiedEnties || new Set(),
     trackedObjects = globalState.trackedObjects = globalState.trackedObjects || new WeakMap();
@@ -582,6 +584,12 @@ Enti.prototype.isAttached = function(){
 Enti.prototype.attachedCount = function(){
     return modifiedEnties.size;
 };
+
+Enti.isEnti = function(target){
+    return target && !!~globalState.instances.indexOf(target.constructor);
+};
+
+globalState.instances.push(Enti);
 
 module.exports = Enti;
 
@@ -2403,7 +2411,7 @@ tape('so many wildcarded deep events', function(t){
     function addEmit(){
         emits++;
     }
-        
+
     console.time('attach');
 
     for(var i = 0; i < 10000; i++){
@@ -2630,6 +2638,14 @@ tape('set enti instance as data of its self..', function(t){
     model.set('foo', model);
 
     model.set('bar', 'baz');
+});
+
+tape('isEnti', function(t){
+    t.plan(1);
+
+    var model = new Enti();
+
+    t.ok(Enti.isEnti(model));
 });
 },{"../":1,"tape":5}],15:[function(require,module,exports){
 

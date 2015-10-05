@@ -22,7 +22,9 @@ function getTargetKey(path){
 
 var eventSystemVersion = 1,
     globalKey = '_entiEventState' + eventSystemVersion
-    globalState = global[globalKey] = global[globalKey] || {};
+    globalState = global[globalKey] = global[globalKey] || {
+        instances: []
+    };
 
 var modifiedEnties = globalState.modifiedEnties = globalState.modifiedEnties || new Set(),
     trackedObjects = globalState.trackedObjects = globalState.trackedObjects || new WeakMap();
@@ -580,5 +582,11 @@ Enti.prototype.isAttached = function(){
 Enti.prototype.attachedCount = function(){
     return modifiedEnties.size;
 };
+
+Enti.isEnti = function(target){
+    return target && !!~globalState.instances.indexOf(target.constructor);
+};
+
+globalState.instances.push(Enti);
 
 module.exports = Enti;
