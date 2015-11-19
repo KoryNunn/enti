@@ -86,7 +86,7 @@ function removeHandler(object, key, handler){
     handlers.delete(handler);
 }
 
-function trackObjects(eventName, weakMap, handler, object, key, path){
+function trackObjects(eventName, tracked, handler, object, key, path){
     if(!object || typeof object !== 'object'){
         return;
     }
@@ -95,17 +95,17 @@ function trackObjects(eventName, weakMap, handler, object, key, path){
         target = object[key],
         targetIsObject = target && typeof target === 'object';
 
-    if(targetIsObject && weakMap.has(target)){
+    if(targetIsObject && tracked.has(target)){
         return;
     }
 
     var handle = function(value, event, emitKey){
         if(eventKey !== '*' && typeof object[eventKey] === 'object' && object[eventKey] !== target){
             if(targetIsObject){
-                weakMap.delete(target);
+                tracked.delete(target);
             }
             removeHandler(object, eventKey, handle);
-            trackObjects(eventName, weakMap, handler, object, key, path);
+            trackObjects(eventName, tracked, handler, object, key, path);
             return;
         }
 
@@ -113,7 +113,7 @@ function trackObjects(eventName, weakMap, handler, object, key, path){
             trackKeys(object, key, path);
         }
 
-        if(!weakMap.has(object)){
+        if(!tracked.has(object)){
             return;
         }
 
@@ -126,9 +126,9 @@ function trackObjects(eventName, weakMap, handler, object, key, path){
         var keys = Object.keys(target);
         for(var i = 0; i < keys.length; i++){
             if(isFeralcardKey(root)){
-                trackObjects(eventName, weakMap, handler, target, keys[i], '**' + (rest ? '.' : '') + (rest || ''));
+                trackObjects(eventName, tracked, handler, target, keys[i], '**' + (rest ? '.' : '') + (rest || ''));
             }else{
-                trackObjects(eventName, weakMap, handler, target, keys[i], rest);
+                trackObjects(eventName, tracked, handler, target, keys[i], rest);
             }
         }
     }
@@ -142,7 +142,7 @@ function trackObjects(eventName, weakMap, handler, object, key, path){
     // This would obviously be better implemented with a WeakSet,
     // But I'm trying to keep filesize down, and I don't really want another
     // polyfill when WeakMap works well enough for the task.
-    weakMap.set(target, null);
+    tracked.add(target);
 
     if(!path){
         return;
@@ -168,7 +168,7 @@ function trackObjects(eventName, weakMap, handler, object, key, path){
         trackKeys(target, root, rest);
     }
 
-    trackObjects(eventName, weakMap, handler, target, root, rest);
+    trackObjects(eventName, tracked, handler, target, root, rest);
 }
 
 var trackedEvents = new WeakMap();
@@ -215,7 +215,7 @@ function trackPath(enti, eventName){
     if(!trackedPaths){
         trackedPaths = {
             entis: new Set(),
-            trackedObjects: new WeakMap()
+            trackedObjects: new WeakSet()
         };
         trackedObjectPaths[eventName] = trackedPaths;
     }else if(trackedPaths.entis.has(enti)){
@@ -502,12 +502,15 @@ Enti.update = function(model, key, value){
         throw 'The target is not an object.';
     }
 
-    var events = [];
+    var events = [],
+        updatedObjects = new WeakSet();
 
     function updateTarget(target, value){
         for(var key in value){
-            if(target[key] && typeof target[key] === 'object'){
-                updateTarget(target[key], value[key]);
+            var currentValue = target[key];
+            if(currentValue instanceof Object && !updatedObjects.has(currentValue)){
+                updatedObjects.add(currentValue);
+                updateTarget(currentValue, value[key]);
                 continue;
             }
             target[key] = value[key];

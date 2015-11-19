@@ -336,6 +336,21 @@ tape('update', function(t){
     });
 });
 
+tape('update cyclic', function(t){
+    t.plan(1);
+
+    var object = {},
+        model1 = new Enti(object);
+
+    object.object = object;
+
+    model1.on('*', function(value, event){
+        t.pass('model1 emitted');
+    }).attach(object);
+
+    model1.update(object);
+});
+
 tape('detach during event', function(t){
     t.plan(2);
 
