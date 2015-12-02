@@ -590,6 +590,14 @@ Enti.isEnti = function(target){
     return target && !!~globalState.instances.indexOf(target.constructor);
 };
 
+Enti.store = function(target, key, value){
+    if(arguments.length < 2){
+        return Enti.get(target, key);
+    }
+
+    Enti.set(target, key, value);
+};
+
 globalState.instances.push(Enti);
 
 module.exports = Enti;

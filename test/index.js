@@ -1,7 +1,7 @@
-var tape = require('tape'),
+var test = require('tape'),
     Enti = require('../');
 
-tape('get', function(t){
+test('get', function(t){
     t.plan(1);
 
     var model = new Enti({a:1});
@@ -9,7 +9,7 @@ tape('get', function(t){
     t.equal(model.get('a'), 1);
 });
 
-tape('get dot', function(t){
+test('get dot', function(t){
     t.plan(1);
 
     var model = new Enti({a:1});
@@ -17,7 +17,7 @@ tape('get dot', function(t){
     t.equal(model.get('.'), model._model);
 });
 
-tape('get deep', function(t){
+test('get deep', function(t){
     t.plan(1);
 
     var model = new Enti({
@@ -29,7 +29,7 @@ tape('get deep', function(t){
     t.equal(model.get('a.b'), 1);
 });
 
-tape('get filter', function(t){
+test('get filter', function(t){
     t.plan(1);
 
     var model = new Enti({
@@ -41,7 +41,7 @@ tape('get filter', function(t){
     t.equal(model.get('a|b'), model.get('a'));
 });
 
-tape('get dot filter', function(t){
+test('get dot filter', function(t){
     t.plan(1);
 
     var model = new Enti({
@@ -53,7 +53,7 @@ tape('get dot filter', function(t){
     t.equal(model.get('.|a'), model._model);
 });
 
-tape('get number', function(t){
+test('get number', function(t){
     t.plan(1);
 
     var model = new Enti([1,2,3]);
@@ -61,7 +61,7 @@ tape('get number', function(t){
     t.equal(model.get(2), 3);
 });
 
-tape('set', function(t){
+test('set', function(t){
     t.plan(1);
 
     var model = new Enti({});
@@ -70,7 +70,7 @@ tape('set', function(t){
     t.equal(model.get('a'), 1);
 });
 
-tape('set deep', function(t){
+test('set deep', function(t){
     t.plan(1);
 
     var model = new Enti({
@@ -81,7 +81,7 @@ tape('set deep', function(t){
     t.equal(model.get('a.b'), 1);
 });
 
-tape('set filter', function(t){
+test('set filter', function(t){
     t.plan(1);
 
     var model = new Enti({
@@ -92,7 +92,7 @@ tape('set filter', function(t){
     t.equal(model.get('a'), 1);
 });
 
-tape('set number', function(t){
+test('set number', function(t){
     t.plan(1);
 
     var model = new Enti([1,2,3]);
@@ -101,7 +101,7 @@ tape('set number', function(t){
     t.equal(model.get(2), 4);
 });
 
-tape('events', function(t){
+test('events', function(t){
     t.plan(2);
 
     var model = new Enti({});
@@ -114,7 +114,7 @@ tape('events', function(t){
     model.set('a', 1);
 });
 /*
-tape('so many events', function(t){
+test('so many events', function(t){
     t.plan(1);
 
     var model = {};
@@ -138,7 +138,7 @@ tape('so many events', function(t){
     t.equal(emits, 10000);
 });
 */
-tape('events own keys modified', function(t){
+test('events own keys modified', function(t){
     t.plan(2);
 
     var model = new Enti({});
@@ -151,7 +151,7 @@ tape('events own keys modified', function(t){
     model.set('a', 1);
 });
 
-tape('shared events', function(t){
+test('shared events', function(t){
     t.plan(2);
 
     var object = {},
@@ -166,7 +166,7 @@ tape('shared events', function(t){
     model2.set('a', 1);
 });
 
-tape('swapped reference', function(t){
+test('swapped reference', function(t){
     t.plan(2);
 
     var object1 = {},
@@ -184,7 +184,7 @@ tape('swapped reference', function(t){
     model2.set('a', 1);
 });
 
-tape('push', function(t){
+test('push', function(t){
     t.plan(2);
 
     var object = {
@@ -212,7 +212,7 @@ tape('push', function(t){
     model.push('items', 5);
 });
 
-tape('push self', function(t){
+test('push self', function(t){
     t.plan(4);
 
     var object = [],
@@ -232,7 +232,7 @@ tape('push self', function(t){
     model.push(5);
 });
 
-tape('insert', function(t){
+test('insert', function(t){
     t.plan(2);
 
     var object = {
@@ -260,7 +260,7 @@ tape('insert', function(t){
     model.insert('items', 5, 1);
 });
 
-tape('insert self', function(t){
+test('insert self', function(t){
     t.plan(4);
 
     var object = [1,2,3],
@@ -280,7 +280,7 @@ tape('insert self', function(t){
     model.insert(5, 1);
 });
 
-tape('move', function(t){
+test('move', function(t){
     t.plan(1);
 
     var object = [1,2,3],
@@ -295,7 +295,7 @@ tape('move', function(t){
     model.move('0', 2);
 });
 
-tape('remove', function(t){
+test('remove', function(t){
     t.plan(3);
 
     var object = [1,2,3],
@@ -314,7 +314,7 @@ tape('remove', function(t){
     model.remove('1');
 });
 
-tape('update', function(t){
+test('update', function(t){
     t.plan(2);
 
     var object = {},
@@ -336,7 +336,7 @@ tape('update', function(t){
     });
 });
 
-tape('update cyclic', function(t){
+test('update cyclic', function(t){
     t.plan(1);
 
     var object = {},
@@ -351,7 +351,7 @@ tape('update cyclic', function(t){
     model1.update(object);
 });
 
-tape('detach during event', function(t){
+test('detach during event', function(t){
     t.plan(2);
 
     var object = {},
@@ -370,7 +370,7 @@ tape('detach during event', function(t){
     model1.set('foo', 1);
 });
 
-tape('detach other during event', function(t){
+test('detach other during event', function(t){
     t.plan(1);
 
     var object = {},
@@ -389,7 +389,7 @@ tape('detach other during event', function(t){
     model1.set('foo', 1);
 });
 
-tape('deep get', function(t){
+test('deep get', function(t){
     t.plan(1);
 
     var model1 = new Enti({a:{b:1}});
@@ -397,7 +397,7 @@ tape('deep get', function(t){
     t.equal(model1.get('a.b'), 1);
 });
 
-tape('deep set', function(t){
+test('deep set', function(t){
     t.plan(1);
 
     var model1 = new Enti({a:{b:1}});
@@ -407,7 +407,7 @@ tape('deep set', function(t){
     t.equal(model1.get('a.b'), 2);
 });
 
-tape('deep events', function(t){
+test('deep events', function(t){
     t.plan(1);
 
     var model1 = new Enti({a:{b:1}}),
@@ -420,7 +420,7 @@ tape('deep events', function(t){
     model2.set('b', 2);
 });
 /*
-tape('so many deep events', function(t){
+test('so many deep events', function(t){
     t.plan(1);
 
     var model = {
@@ -451,7 +451,7 @@ tape('so many deep events', function(t){
 });
 */
 
-tape('deep events wildcard', function(t){
+test('deep events wildcard', function(t){
     t.plan(1);
 
     var model1 = new Enti({a:{b:1}}),
@@ -464,7 +464,7 @@ tape('deep events wildcard', function(t){
     model2.set('b', 2);
 });
 
-tape('any depth events wildcard', function(t){
+test('any depth events wildcard', function(t){
     t.plan(2);
 
     var model1 = new Enti({a:{b:{c:1}}}),
@@ -478,7 +478,7 @@ tape('any depth events wildcard', function(t){
     model2.set('d', 3);
 });
 
-tape('any depth events wildcard 2', function(t){
+test('any depth events wildcard 2', function(t){
     t.plan(1);
 
     var model1 = new Enti({a:{b:{c:1}}}),
@@ -492,7 +492,7 @@ tape('any depth events wildcard 2', function(t){
     model2.set('d', 3);
 });
 
-tape('any depth events wildcard deeper', function(t){
+test('any depth events wildcard deeper', function(t){
     t.plan(1);
 
     var model1 = new Enti({a:{b:{c:1}}}),
@@ -506,7 +506,7 @@ tape('any depth events wildcard deeper', function(t){
 });
 
 /*
-tape('so many wildcarded deep events', function(t){
+test('so many wildcarded deep events', function(t){
     t.plan(1);
 
     var model = {
@@ -542,7 +542,7 @@ tape('so many wildcarded deep events', function(t){
 */
 
 /*
-tape('wildcarded deep events with so many objects', function(t){
+test('wildcarded deep events with so many objects', function(t){
     t.plan(1);
 
     var model = {};
@@ -572,7 +572,7 @@ tape('wildcarded deep events with so many objects', function(t){
     t.equal(emits, 1);
 });
 */
-tape('deep events 2', function(t){
+test('deep events 2', function(t){
     t.plan(1);
 
     var model1 = new Enti({a:{b:1}}),
@@ -590,7 +590,7 @@ tape('deep events 2', function(t){
     model3.set('c', 4);
 });
 
-tape('nan target', function(t){
+test('nan target', function(t){
     t.plan(1);
 
     var model1 = new Enti({a:{b:{}}});
@@ -602,7 +602,7 @@ tape('nan target', function(t){
     model1.set('a.b.c', NaN);
 });
 
-tape('Late updates', function(t){
+test('Late updates', function(t){
     t.plan(3);
 
     var data = {
@@ -626,7 +626,7 @@ tape('Late updates', function(t){
     Enti.remove(model1._model.data.rows, 1);
 });
 
-tape('is attached', function(t){
+test('is attached', function(t){
     t.plan(2);
 
     var model = new Enti(false);
@@ -638,7 +638,7 @@ tape('is attached', function(t){
     t.ok(model.isAttached());
 });
 
-tape('late attach events', function(t){
+test('late attach events', function(t){
     t.plan(1);
 
     var model = new Enti(false);
@@ -650,7 +650,7 @@ tape('late attach events', function(t){
     model.set('foo', 'bar');
 });
 
-tape('event filters', function(t){
+test('event filters', function(t){
     t.plan(1);
 
     var model = new Enti({
@@ -666,7 +666,7 @@ tape('event filters', function(t){
     model.set('foo.bar', 2);
 });
 
-tape('event filters wildcard', function(t){
+test('event filters wildcard', function(t){
     t.plan(1);
 
     var model = new Enti({
@@ -682,7 +682,7 @@ tape('event filters wildcard', function(t){
     model.set('foo.bar', 2);
 });
 
-tape('event filters deep wildcard', function(t){
+test('event filters deep wildcard', function(t){
     t.plan(1);
 
     var model = new Enti({
@@ -700,7 +700,7 @@ tape('event filters deep wildcard', function(t){
     model.set('foo.bar.baz', 2);
 });
 
-tape('event filters self deep wildcard', function(t){
+test('event filters self deep wildcard', function(t){
     t.plan(1);
 
     var model = new Enti({
@@ -718,7 +718,7 @@ tape('event filters self deep wildcard', function(t){
     model.set('foo.bar.baz', 2);
 });
 
-tape('set enti instance as data within enti', function(t){
+test('set enti instance as data within enti', function(t){
     t.plan(2);
 
     var targetModel = new Enti({}),
@@ -735,7 +735,7 @@ tape('set enti instance as data within enti', function(t){
     targetModel.set('bar', 'baz');
 });
 
-tape('set enti instance as data of its self..', function(t){
+test('set enti instance as data of its self..', function(t){
     t.plan(2);
 
     var model = new Enti({
@@ -751,10 +751,46 @@ tape('set enti instance as data of its self..', function(t){
     model.set('bar', 'baz');
 });
 
-tape('isEnti', function(t){
+test('isEnti', function(t){
     t.plan(1);
 
     var model = new Enti();
 
     t.ok(Enti.isEnti(model));
+});
+
+test('store shallow', function(t){
+    t.plan(2);
+
+    var person = {};
+
+    var entiModel = new Enti(person);
+
+    entiModel.on('firstName', function(firstName){
+        t.ok(firstName, 'bob');
+    });
+
+    entiModel.on('surname', function(surname){
+        t.ok(surname, 'down');
+    });
+
+    Enti.store(person, 'firstName', 'bob');
+
+    Enti.store(person, 'surname', 'down');
+});
+
+test('store deep', function(t){
+    t.plan(1);
+
+    var person = {
+        stuff: {}
+    };
+
+    var entiModel = new Enti(person);
+
+    entiModel.on('stuff.majigger', function(majigger){
+        t.ok(majigger, 'dooby');
+    });
+
+    Enti.store(person, 'stuff.majigger', 'dooby');
 });
