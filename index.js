@@ -508,7 +508,7 @@ Enti.update = function(model, key, value){
     function updateTarget(target, value){
         for(var key in value){
             var currentValue = target[key];
-            if(currentValue instanceof Object && !updatedObjects.has(currentValue)){
+            if(currentValue instanceof Object && !updatedObjects.has(currentValue) && !(currentValue instanceof Date)){
                 updatedObjects.add(currentValue);
                 updateTarget(currentValue, value[key]);
                 continue;

@@ -351,6 +351,21 @@ test('update cyclic', function(t){
     model1.update(object);
 });
 
+test('update with dates', function(t){
+    t.plan(1);
+
+    var object = {
+            a: new Date(2000,1,1)
+        },
+        model1 = new Enti(object);
+
+    model1.update({
+        a: new Date(2002,2,2)
+    });
+
+    t.deepEqual(model1.get('a'), new Date(2002,2,2))
+});
+
 test('detach during event', function(t){
     t.plan(2);
 
