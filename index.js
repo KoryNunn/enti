@@ -294,6 +294,13 @@ function Enti(model){
         modifiedEnties.add(this);
     });
 }
+Enti.emit = function(model, key, value){
+    if(!(typeof model === 'object' || typeof model === 'function')){
+        return;
+    }
+
+    emit([[model, key, value]]);
+};
 Enti.get = function(model, key){
     if(!model || typeof model !== 'object'){
         return;

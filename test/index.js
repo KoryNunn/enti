@@ -809,3 +809,21 @@ test('store deep', function(t){
 
     Enti.store(person, 'stuff.majigger', 'dooby');
 });
+
+test('emit', function(t){
+    t.plan(2);
+
+    var model = {},
+        entiModel = new Enti(model);
+
+    entiModel.on('dooby', function(dooby, event){
+
+        // Emitted value of dooby is 'dooby'.
+        t.equal(event.value, 'dooby');
+
+        // Actual value of dooby is undefined.
+        t.equal(dooby, undefined);
+    });
+
+    Enti.emit(model, 'dooby', 'dooby');
+});
