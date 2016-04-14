@@ -1,7 +1,7 @@
 {
   "name": "enti",
   "version": "5.2.0",
-  "description": "",
+  "description": "A super light-weight key-value 'observable' wrapper that works with references.",
   "main": "index.js",
   "directories": {
     "test": "test"
@@ -18,5 +18,14 @@
   },
   "devDependencies": {
     "tape": "^3.4.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KoryNunn/enti.git"
+  },
+  "keywords": [],
+  "bugs": {
+    "url": "https://github.com/KoryNunn/enti/issues"
+  },
+  "homepage": "https://github.com/KoryNunn/enti#readme"
 }
