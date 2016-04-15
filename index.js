@@ -91,13 +91,30 @@ function trackObjects(eventName, tracked, handler, object, key, path){
         return;
     }
 
+    var target = object[key];
+
+    if(target && typeof target === 'object' && tracked.has(target)){
+        return;
+    }
+
+    trackObject(eventName, tracked, handler, object, key, path);
+}
+
+function trackKeys(eventName, tracked, handler, target, root, rest){
+    var keys = Object.keys(target);
+    for(var i = 0; i < keys.length; i++){
+        if(isFeralcardKey(root)){
+            trackObjects(eventName, tracked, handler, target, keys[i], '**' + (rest ? '.' : '') + (rest || ''));
+        }else{
+            trackObjects(eventName, tracked, handler, target, keys[i], rest);
+        }
+    }
+}
+
+function trackObject(eventName, tracked, handler, object, key, path){
     var eventKey = key === '**' ? '*' : key,
         target = object[key],
         targetIsObject = target && typeof target === 'object';
-
-    if(targetIsObject && tracked.has(target)){
-        return;
-    }
 
     var handle = function(value, event, emitKey){
         if(eventKey !== '*' && typeof object[eventKey] === 'object' && object[eventKey] !== target){
@@ -110,7 +127,7 @@ function trackObjects(eventName, tracked, handler, object, key, path){
         }
 
         if(eventKey === '*'){
-            trackKeys(object, key, path);
+            trackKeys(eventName, tracked, handler, object, key, path);
         }
 
         if(!tracked.has(object)){
@@ -120,18 +137,7 @@ function trackObjects(eventName, tracked, handler, object, key, path){
         if(key !== '**' || !path){
             handler(value, event, emitKey);
         }
-    }
-
-    function trackKeys(target, root, rest){
-        var keys = Object.keys(target);
-        for(var i = 0; i < keys.length; i++){
-            if(isFeralcardKey(root)){
-                trackObjects(eventName, tracked, handler, target, keys[i], '**' + (rest ? '.' : '') + (rest || ''));
-            }else{
-                trackObjects(eventName, tracked, handler, target, keys[i], rest);
-            }
-        }
-    }
+    };
 
     addHandler(object, eventKey, handle);
 
@@ -139,9 +145,6 @@ function trackObjects(eventName, tracked, handler, object, key, path){
         return;
     }
 
-    // This would obviously be better implemented with a WeakSet,
-    // But I'm trying to keep filesize down, and I don't really want another
-    // polyfill when WeakMap works well enough for the task.
     tracked.add(target);
 
     if(!path){
@@ -165,7 +168,7 @@ function trackObjects(eventName, tracked, handler, object, key, path){
     }
 
     if(targetIsObject && isWildcardKey(root)){
-        trackKeys(target, root, rest);
+        trackKeys(eventName, tracked, handler, target, root, rest);
     }
 
     trackObjects(eventName, tracked, handler, target, root, rest);
