@@ -1,4 +1,5 @@
-var EventEmitter = require('events').EventEmitter;
+var EventEmitter = require('events').EventEmitter,
+    isInstance = require('is-instance');
 
 function toArray(items){
     return Array.prototype.slice.call(items);
@@ -542,6 +543,10 @@ Enti.prototype.constructor = Enti;
 Enti.prototype.attach = function(model){
     if(this._model !== model){
         this.detach();
+    }
+
+    if(model && !isInstance(model)){
+        throw 'Entis may only be attached to an object, or null/undefined';
     }
 
     modifiedEnties.add(this);

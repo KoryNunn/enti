@@ -14,7 +14,8 @@
   "license": "ISC",
   "dependencies": {
     "deep-equal": "^1.0.0",
-    "flat-merge": "^1.0.0"
+    "flat-merge": "^1.0.0",
+    "is-instance": "^1.0.1"
   },
   "devDependencies": {
     "tape": "^3.4.0"

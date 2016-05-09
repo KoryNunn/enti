@@ -166,6 +166,15 @@ test('shared events', function(t){
     model2.set('a', 1);
 });
 
+test('attach to non-object', function(t){
+    t.plan(1);
+
+    t.throws(function(){
+        var x = new Enti();
+        x.attach('majiggers');
+    });
+});
+
 test('swapped reference', function(t){
     t.plan(2);
 
