@@ -53,7 +53,7 @@ function isFeralcardKey(key){
     return key === '**';
 }
 
-function addHandler(object, key, handler){
+function addHandler(object, key, handler, eventName){
     var trackedKeys = trackedObjects.get(object);
 
     if(trackedKeys == null){
@@ -64,14 +64,18 @@ function addHandler(object, key, handler){
     var handlers = trackedKeys[key];
 
     if(!handlers){
-        handlers = new Set();
+        handlers = new Map();
         trackedKeys[key] = handlers;
     }
 
-    handlers.add(handler);
+    if(handlers.has(eventName)){
+        return;
+    }
+
+    handlers.set(eventName, handler);
 }
 
-function removeHandler(object, key, handler){
+function removeHandler(object, key, handler, eventName){
     var trackedKeys = trackedObjects.get(object);
 
     if(trackedKeys == null){
@@ -84,7 +88,7 @@ function removeHandler(object, key, handler){
         return;
     }
 
-    handlers.delete(handler);
+    handlers.delete(eventName);
 }
 
 function trackObjects(eventName, tracked, handler, object, key, path){
@@ -122,7 +126,7 @@ function trackObject(eventName, tracked, handler, object, key, path){
             if(targetIsObject){
                 tracked.delete(target);
             }
-            removeHandler(object, eventKey, handle);
+            removeHandler(object, eventKey, handle, eventName);
             trackObjects(eventName, tracked, handler, object, key, path);
             return;
         }
@@ -140,7 +144,7 @@ function trackObject(eventName, tracked, handler, object, key, path){
         }
     };
 
-    addHandler(object, eventKey, handle);
+    addHandler(object, eventKey, handle, eventName);
 
     if(!targetIsObject){
         return;
