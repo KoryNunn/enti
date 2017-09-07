@@ -69,10 +69,13 @@ function addHandler(object, key, handler, eventName){
     }
 
     if(handlers.has(eventName)){
+        handlers.get(eventName).add(handler);
         return;
     }
 
-    handlers.set(eventName, handler);
+    var handlerSet = new Set();
+    handlerSet.add(handler);
+    handlers.set(eventName, handlerSet);
 }
 
 function removeHandler(object, key, handler, eventName){
@@ -88,7 +91,13 @@ function removeHandler(object, key, handler, eventName){
         return;
     }
 
-    handlers.delete(eventName);
+    var handlerSet = handlers.get(eventName);
+
+    if(!handlerSet){
+        return
+    }
+
+    handlerSet.delete(handler);
 }
 
 function trackObjects(eventName, tracked, handler, object, key, path){
@@ -180,10 +189,11 @@ function trackObject(eventName, tracked, handler, object, key, path){
 }
 
 var trackedEvents = new WeakMap();
-function createHandler(enti, trackedObjectPaths, trackedPaths, eventName){
+function createHandler(enti, trackedObjectPaths, eventName){
     var oldModel = enti._model;
     return function(event, emitKey){
-        trackedPaths.entis.forEach(function(enti){
+        var trackedPaths = trackedObjectPaths[eventName];
+        trackedPaths && trackedPaths.entis.forEach(function(enti){
             if(enti._emittedEvents[eventName] === emitKey){
                 return;
             }
@@ -232,7 +242,7 @@ function trackPath(enti, eventName){
 
     trackedPaths.entis.add(enti);
 
-    var handler = createHandler(enti, trackedObjectPaths, trackedPaths, eventName);
+    var handler = createHandler(enti, trackedObjectPaths, eventName);
 
     trackObjects(eventName, trackedPaths.trackedObjects, handler, {model:object}, 'model', eventName);
 }
@@ -264,8 +274,10 @@ function emitEvent(object, key, value, emitKey){
         object: object
     };
 
-    function emitForKey(handler){
-        handler(event, emitKey);
+    function emitForKey(handlers){
+        handlers.forEach(function(handler){
+            handler(event, emitKey);
+        });
     }
 
     if(trackedKeys[key]){
