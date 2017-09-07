@@ -193,6 +193,26 @@ test('swapped reference', function(t){
     model2.set('a', 1);
 });
 
+test('dual bind same data different wrapper', function(t){
+    t.plan(2);
+
+    var data = { foo: 1 },
+        model1 = new Enti(),
+        model2 = new Enti();
+
+    model1.attach({ data: data });
+    model1.on('data.foo', function(){
+        t.pass();
+    });
+
+    model2.attach({ data: data });
+    model2.on('data.foo', function(){
+        t.pass();
+    });
+
+    model1.set('data.foo', 2);
+});
+
 test('push', function(t){
     t.plan(2);
 
