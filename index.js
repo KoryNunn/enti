@@ -125,10 +125,12 @@ function trackKeys(eventName, tracked, handler, target, root, rest){
     }
 }
 
-function createTrackHandler(eventName, tracked, handler, key, path, eventKey){
-    return function(event, emitKey, object){
-        var target = object[key];
+function trackObject(eventName, tracked, handler, object, key, path){
+    var eventKey = key === '**' ? '*' : key,
+        target = object[key],
+        targetIsObject = target && typeof target === 'object';
 
+    var handle = function(value, event, emitKey){
         if(eventKey !== '*' && typeof object[eventKey] === 'object' && object[eventKey] !== target){
             if(targetIsObject){
                 tracked.delete(target);
@@ -147,17 +149,9 @@ function createTrackHandler(eventName, tracked, handler, key, path, eventKey){
         }
 
         if(key !== '**' || !path){
-            handler(event, emitKey);
+            handler(value, event, emitKey);
         }
     };
-}
-
-function trackObject(eventName, tracked, handler, object, key, path){
-    var eventKey = key === '**' ? '*' : key,
-        target = object[key],
-        targetIsObject = target && typeof target === 'object';
-
-    var handle = createTrackHandler(eventName, tracked, handler, key, path, eventKey);
 
     addHandler(object, eventKey, handle, eventName);
 
@@ -283,7 +277,7 @@ function emitEvent(object, key, value, emitKey){
 
     function emitForKey(handlers){
         handlers.forEach(function(handler){
-            handler(event, emitKey, object);
+            handler(event, emitKey);
         });
     }
 
