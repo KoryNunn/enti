@@ -433,6 +433,28 @@ test('detach other during event', function(t){
     model1.set('foo', 1);
 });
 
+test('detach doesn\'t ruin sibling enti', function(t){
+    t.plan(3);
+
+    var object = {},
+        model1 = new Enti(object),
+        model2 = new Enti(object);
+
+    model1.on('foo', function(value, event){
+        t.pass('model1 emitted');
+    }).attach(object);
+
+    model2.on('foo', function(value, event){
+        t.pass('model2 emitted');
+    }).attach(object);
+
+    Enti.set(object, 'foo', 1);
+
+    model1.detach();
+
+    Enti.set(object, 'foo', 2);
+});
+
 test('deep get', function(t){
     t.plan(1);
 
@@ -855,4 +877,22 @@ test('emit', function(t){
     });
 
     Enti.emit(model, 'dooby', 'dooby');
+});
+
+test('memory test, new objects', function(t){
+    t.plan(1);
+
+    var model = new Enti();
+    model.on('key0', () => {});
+    var iterations = 0;
+
+    while(iterations++ < 10000) {
+        var testData = {};
+        for(var i = 0; i < 1000; i++){
+            testData['key' + i] = 'Did you ever hear the tragedy of Darth Plagueis The Wise? I thought not. It’s not a story the Jedi would tell you. It’s a Sith legend. Darth Plagueis was a Dark Lord of the Sith, so powerful and so wise he could use the Force to influence the midichlorians to create life… He had such a knowledge of the dark side that he could even keep the ones he cared about from dying. The dark side of the Force is a pathway to many abilities some consider to be unnatural. He became so powerful… the only thing he was afraid of was losing his power, which eventually, of course, he did. Unfortunately, he taught his apprentice everything he knew, then his apprentice killed him in his sleep. Ironic. He could save others from death, but not himself.';
+        }
+        model.attach(testData);
+    }
+
+    t.pass('Didn\'t crash');
 });
