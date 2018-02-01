@@ -204,6 +204,7 @@ function createHandler(enti, trackedObjectPaths, eventName){
                     delete trackedObjectPaths[eventName];
                     if(!Object.keys(trackedObjectPaths).length){
                         trackedEvents.delete(oldModel);
+                        oldModel = null;
                     }
                 }
                 return;

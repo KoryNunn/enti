@@ -1,6 +1,6 @@
 {
   "name": "enti",
-  "version": "5.3.1",
+  "version": "5.3.4",
   "description": "A super light-weight key-value 'observable' wrapper that works with references.",
   "main": "index.js",
   "directories": {
@@ -18,7 +18,8 @@
     "is-instance": "^1.0.1"
   },
   "devDependencies": {
-    "tape": "^3.4.0"
+    "tape": "^3.4.0",
+    "watchify": "^3.9.0"
   },
   "repository": {
     "type": "git",
