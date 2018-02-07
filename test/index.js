@@ -113,7 +113,7 @@ test('events', function(t){
 
     model.set('a', 1);
 });
-/*
+
 test('so many events', function(t){
     t.plan(1);
 
@@ -121,23 +121,17 @@ test('so many events', function(t){
 
     var emits = 0;
 
-    var start = Date.now();
-
     for(var i = 0; i < 10000; i++){
         new Enti(model).on('a', function(){
             emits++;
         });
     }
 
-    console.log('attach', Date.now() - start);
-
     Enti.set(model, 'a', 2);
-
-    console.log('triggered', Date.now() - start);
 
     t.equal(emits, 10000);
 });
-*/
+
 test('events own keys modified', function(t){
     t.plan(2);
 
@@ -433,6 +427,21 @@ test('detach other during event', function(t){
     model1.set('foo', 1);
 });
 
+test('detach all then event', function(t){
+    t.plan(1);
+
+    var object = {},
+        model1 = new Enti(object);
+
+    model1.on('foo', function(value, event){
+        t.pass('model1 emitted');
+        model1.detach();
+    }).attach(object);
+
+    Enti.set(object, 'foo', 1);
+    Enti.set(object, 'foo', 2);
+});
+
 test('detach doesn\'t ruin sibling enti', function(t){
     t.plan(3);
 
@@ -485,7 +494,7 @@ test('deep events', function(t){
 
     model2.set('b', 2);
 });
-/*
+
 test('so many deep events', function(t){
     t.plan(1);
 
@@ -499,23 +508,17 @@ test('so many deep events', function(t){
 
     var emits = 0;
 
-    var start = Date.now();
-
     for(var i = 0; i < 10000; i++){
         new Enti(model).on('a.b.c', function(){
             emits++;
         });
     }
 
-    console.log('attach', Date.now() - start);
-
     Enti.set(model, 'a.b.c', 2);
-
-    console.log('triggered', Date.now() - start);
 
     t.equal(emits, 10000);
 });
-*/
+
 
 test('deep events wildcard', function(t){
     t.plan(1);
@@ -571,7 +574,6 @@ test('any depth events wildcard deeper', function(t){
     model2.set('c', 2);
 });
 
-/*
 test('so many wildcarded deep events', function(t){
     t.plan(1);
 
@@ -589,25 +591,15 @@ test('so many wildcarded deep events', function(t){
         emits++;
     }
 
-    console.time('attach');
-
     for(var i = 0; i < 10000; i++){
         new Enti(model).on('**.c', addEmit);
     }
 
-    console.timeEnd('attach');
-
-    console.time('trigger');
-
     Enti.set(model, 'a.b.c', 2);
-
-    console.timeEnd('trigger');
 
     t.equal(emits, 10000);
 });
-*/
 
-/*
 test('wildcarded deep events with so many objects', function(t){
     t.plan(1);
 
@@ -623,21 +615,15 @@ test('wildcarded deep events with so many objects', function(t){
 
     var emits = 0;
 
-    var start = Date.now();
-
     new Enti(model).on('**.c', function(){
         emits++;
     });
 
-    console.log('attach', Date.now() - start);
-
     Enti.set(model, '1.b.c', 2);
-
-    console.log('triggered', Date.now() - start);
 
     t.equal(emits, 1);
 });
-*/
+
 test('deep events 2', function(t){
     t.plan(1);
 
@@ -879,19 +865,23 @@ test('emit', function(t){
     Enti.emit(model, 'dooby', 'dooby');
 });
 
-test('memory test, new objects', function(t){
+test('memory test, ~1GB total allocation, new objects', function(t){
     t.plan(1);
 
-    var model = new Enti();
-    model.on('key0', () => {});
+    var data = {};
+    var model1 = new Enti(data);
+    var model2 = new Enti(data);
+    model1.on('.|**', () => {});
+    model2.on('.|**', () => {});
     var iterations = 0;
 
-    while(iterations++ < 10000) {
+    while(iterations++ < 1000) {
         var testData = {};
         for(var i = 0; i < 1000; i++){
             testData['key' + i] = 'Did you ever hear the tragedy of Darth Plagueis The Wise? I thought not. It’s not a story the Jedi would tell you. It’s a Sith legend. Darth Plagueis was a Dark Lord of the Sith, so powerful and so wise he could use the Force to influence the midichlorians to create life… He had such a knowledge of the dark side that he could even keep the ones he cared about from dying. The dark side of the Force is a pathway to many abilities some consider to be unnatural. He became so powerful… the only thing he was afraid of was losing his power, which eventually, of course, he did. Unfortunately, he taught his apprentice everything he knew, then his apprentice killed him in his sleep. Ironic. He could save others from death, but not himself.';
         }
-        model.attach(testData);
+        Enti.set(data, 'x', testData);
+        new Enti(data);
     }
 
     t.pass('Didn\'t crash');

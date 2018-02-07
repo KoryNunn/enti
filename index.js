@@ -27,8 +27,8 @@ var eventSystemVersion = 1,
         instances: []
     };
 
-var modifiedEnties = globalState.modifiedEnties = globalState.modifiedEnties || new Set(),
-    trackedObjects = globalState.trackedObjects = globalState.trackedObjects || new WeakMap();
+var modifiedEnties = globalState.modifiedEnties_v6 = globalState.modifiedEnties_v6 || new Set(),
+    trackedObjects = globalState.trackedObjects_v6 = globalState.trackedObjects_v6 || new WeakMap();
 
 function leftAndRest(path){
     var stringPath = (path + '');
@@ -53,7 +53,7 @@ function isFeralcardKey(key){
     return key === '**';
 }
 
-function addHandler(object, key, handler, eventName){
+function addHandler(object, key, handler){
     var trackedKeys = trackedObjects.get(object);
 
     if(trackedKeys == null){
@@ -64,21 +64,14 @@ function addHandler(object, key, handler, eventName){
     var handlers = trackedKeys[key];
 
     if(!handlers){
-        handlers = new Map();
+        handlers = new Set();
         trackedKeys[key] = handlers;
     }
 
-    if(handlers.has(eventName)){
-        handlers.get(eventName).add(handler);
-        return;
-    }
-
-    var handlerSet = new Set();
-    handlerSet.add(handler);
-    handlers.set(eventName, handlerSet);
+    handlers.add(handler);
 }
 
-function removeHandler(object, key, handler, eventName){
+function removeHandler(object, key, handler){
     var trackedKeys = trackedObjects.get(object);
 
     if(trackedKeys == null){
@@ -91,13 +84,7 @@ function removeHandler(object, key, handler, eventName){
         return;
     }
 
-    var handlerSet = handlers.get(eventName);
-
-    if(!handlerSet){
-        return
-    }
-
-    handlerSet.delete(handler);
+    handlers.delete(handler);
 }
 
 function trackObjects(eventName, tracked, handler, object, key, path){
@@ -135,7 +122,7 @@ function trackObject(eventName, tracked, handler, object, key, path){
             if(targetIsObject){
                 tracked.delete(target);
             }
-            removeHandler(object, eventKey, handle, eventName);
+            removeHandler(object, eventKey, handle);
             trackObjects(eventName, tracked, handler, object, key, path);
             return;
         }
@@ -153,7 +140,7 @@ function trackObject(eventName, tracked, handler, object, key, path){
         }
     };
 
-    addHandler(object, eventKey, handle, eventName);
+    addHandler(object, eventKey, handle);
 
     if(!targetIsObject){
         return;
@@ -188,39 +175,44 @@ function trackObject(eventName, tracked, handler, object, key, path){
     trackObjects(eventName, tracked, handler, target, root, rest);
 }
 
+function emitForEnti(trackedPaths, trackedObjectPaths, eventName, emitKey, event, enti){
+    if(enti._emittedEvents[eventName] === emitKey){
+        return;
+    }
+
+    if(!trackedPaths.trackedObjects.has(enti._model)){
+        trackedPaths.entis.delete(enti);
+        if(trackedPaths.entis.size === 0){
+            delete trackedObjectPaths[eventName];
+        }
+        return;
+    }
+
+    enti._emittedEvents[eventName] = emitKey;
+
+    var targetKey = getTargetKey(eventName),
+        value = isWildcardPath(targetKey) ? undefined : enti.get(targetKey);
+
+    enti.emit(eventName, value, event);
+}
+
 var trackedEvents = new WeakMap();
-function createHandler(enti, trackedObjectPaths, eventName){
-    var oldModel = enti._model;
+function createHandler(enti, trackedObjectPaths, trackedPaths, eventName){
     return function(event, emitKey){
-        var trackedPaths = trackedObjectPaths[eventName];
-        trackedPaths && trackedPaths.entis.forEach(function(enti){
-            if(enti._emittedEvents[eventName] === emitKey){
-                return;
-            }
-
-            if(enti._model !== oldModel){
-                trackedPaths.entis.delete(enti);
-                if(trackedPaths.entis.size === 0){
-                    delete trackedObjectPaths[eventName];
-                    if(!Object.keys(trackedObjectPaths).length){
-                        trackedEvents.delete(oldModel);
-                        oldModel = null;
-                    }
-                }
-                return;
-            }
-
-            enti._emittedEvents[eventName] = emitKey;
-
-            var targetKey = getTargetKey(eventName),
-                value = isWildcardPath(targetKey) ? undefined : enti.get(targetKey);
-
-            enti.emit(eventName, value, event);
-        });
+        trackedPaths.entis.forEach(emitForEnti.bind(null, trackedPaths, trackedObjectPaths, eventName, emitKey, event));
     };
 }
 
 function trackPath(enti, eventName){
+    if(
+        eventName === 'newListener' &&
+        enti._events &&
+        enti._events.newListener &&
+        (!Array.isArray(enti._events.newListener) || enti._events.newListener.length === 1)
+    ){
+        return;
+    }
+
     var object = enti._model,
         trackedObjectPaths = trackedEvents.get(object);
 
@@ -243,7 +235,7 @@ function trackPath(enti, eventName){
 
     trackedPaths.entis.add(enti);
 
-    var handler = createHandler(enti, trackedObjectPaths, eventName);
+    var handler = createHandler(enti, trackedObjectPaths, trackedPaths, eventName);
 
     trackObjects(eventName, trackedPaths.trackedObjects, handler, {model:object}, 'model', eventName);
 }
@@ -275,10 +267,8 @@ function emitEvent(object, key, value, emitKey){
         object: object
     };
 
-    function emitForKey(handlers){
-        handlers.forEach(function(handler){
-            handler(event, emitKey);
-        });
+    function emitForKey(handler){
+        handler(event, emitKey);
     }
 
     if(trackedKeys[key]){
@@ -558,9 +548,11 @@ Enti.prototype = Object.create(EventEmitter.prototype);
 Enti.prototype._maxListeners = 100;
 Enti.prototype.constructor = Enti;
 Enti.prototype.attach = function(model){
-    if(this._model !== model){
-        this.detach();
+    if(this._model === model){
+        return;
     }
+
+    this.detach();
 
     if(model && !isInstance(model)){
         throw 'Entis may only be attached to an object, or null/undefined';
@@ -572,6 +564,9 @@ Enti.prototype.attach = function(model){
     this.emit('attach', model);
 };
 Enti.prototype.detach = function(){
+    if(!this._attached){
+        return;
+    }
     modifiedEnties.delete(this);
 
     this._emittedEvents = {};
