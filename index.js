@@ -176,7 +176,11 @@ function trackObject(eventName, tracked, handler, object, key, path){
 }
 
 function emitForEnti(trackedPaths, trackedObjectPaths, eventName, emitKey, event, enti){
-    if(enti._emittedEvents[eventName] === emitKey){
+    if(!emitKey[eventName]){
+        emitKey[eventName] = new WeakSet();
+    }
+
+    if(emitKey[eventName].has(enti)){
         return;
     }
 
@@ -188,7 +192,7 @@ function emitForEnti(trackedPaths, trackedObjectPaths, eventName, emitKey, event
         return;
     }
 
-    enti._emittedEvents[eventName] = emitKey;
+    emitKey[eventName].add(enti)
 
     var targetKey = getTargetKey(eventName),
         value = isWildcardPath(targetKey) ? undefined : enti.get(targetKey);
@@ -294,7 +298,6 @@ function Enti(model){
         model = {};
     }
 
-    this._emittedEvents = {};
     if(detached){
         this._model = {};
     }else{
@@ -569,7 +572,6 @@ Enti.prototype.detach = function(){
     }
     modifiedEnties.delete(this);
 
-    this._emittedEvents = {};
     this._model = {};
     this._attached = false;
     this.emit('detach');

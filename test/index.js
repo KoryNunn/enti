@@ -624,6 +624,30 @@ test('wildcarded deep events with so many objects', function(t){
     t.equal(emits, 1);
 });
 
+test('so many objects and so many emits', function(t){
+    t.plan(1);
+
+    var data = {};
+
+    var emits = 0;
+    var model = new Enti(data);
+
+    for(var i = 0; i < 100; i++){
+        var model = new Enti(data);
+        for(var j = 0; j < 1000; j++){
+            model.on(j, function(){
+                emits++;
+            });
+        }
+    }
+
+    for(var i = 0; i < 1000; i++){
+        Enti.set(data, i, i);
+    }
+
+    t.equal(emits, 1e5);
+});
+
 test('deep events 2', function(t){
     t.plan(1);
 
