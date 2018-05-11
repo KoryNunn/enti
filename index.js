@@ -29,6 +29,7 @@ var eventSystemVersion = 1,
 
 var modifiedEnties = globalState.modifiedEnties_v6 = globalState.modifiedEnties_v6 || new Set(),
     trackedObjects = globalState.trackedObjects_v6 = globalState.trackedObjects_v6 || new WeakMap();
+    trackedHandlers = globalState.trackedHandlers_v6 = globalState.trackedHandlers_v6 || new WeakMap();
 
 function leftAndRest(path){
     var stringPath = (path + '');
@@ -53,12 +54,25 @@ function isFeralcardKey(key){
     return key === '**';
 }
 
-function addHandler(object, key, handler){
+function addHandler(object, key, handler, parentHandler){
     var trackedKeys = trackedObjects.get(object);
+    var trackedHandler = trackedHandlers.get(parentHandler);
 
     if(trackedKeys == null){
         trackedKeys = {};
         trackedObjects.set(object, trackedKeys);
+    }
+    if(trackedHandler == null){
+        trackedHandler = new WeakMap();
+        trackedHandlers.set(parentHandler, new WeakMap());
+    }
+
+    if(trackedHandler.get(object) == null){
+        trackedHandler.set(object, new Set());
+    }
+
+    if(trackedHandler.get(object).has(key)){
+        return;
     }
 
     var handlers = trackedKeys[key];
@@ -69,12 +83,19 @@ function addHandler(object, key, handler){
     }
 
     handlers.add(handler);
+    trackedHandler.get(object).add(key);
 }
 
-function removeHandler(object, key, handler){
+function removeHandler(object, key, handler, parentHandler){
     var trackedKeys = trackedObjects.get(object);
+    var trackedHandler = trackedHandlers.get(parentHandler);
 
-    if(trackedKeys == null){
+    if(
+        trackedKeys == null ||
+        trackedHandler == null ||
+        trackedHandler.get(object) == null ||
+        !trackedHandler.get(object).has(key)
+    ){
         return;
     }
 
@@ -85,6 +106,7 @@ function removeHandler(object, key, handler){
     }
 
     handlers.delete(handler);
+    trackedHandler.get(object).delete(key);
 }
 
 function trackObjects(eventName, tracked, handler, object, key, path){
@@ -122,7 +144,7 @@ function trackObject(eventName, tracked, handler, object, key, path){
             if(targetIsObject){
                 tracked.delete(target);
             }
-            removeHandler(object, eventKey, handle);
+            removeHandler(object, eventKey, handle, handler);
             trackObjects(eventName, tracked, handler, object, key, path);
             return;
         }
@@ -140,7 +162,7 @@ function trackObject(eventName, tracked, handler, object, key, path){
         }
     };
 
-    addHandler(object, eventKey, handle);
+    addHandler(object, eventKey, handle, handler);
 
     if(!targetIsObject){
         return;
