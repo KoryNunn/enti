@@ -22,7 +22,7 @@ function getTargetKey(path){
 }
 
 var eventSystemVersion = 1,
-    globalKey = '_entiEventState' + eventSystemVersion
+    globalKey = '_entiEventState' + eventSystemVersion,
     globalState = global[globalKey] = global[globalKey] || {
         instances: []
     };
