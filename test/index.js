@@ -910,3 +910,18 @@ test('memory test, ~1GB total allocation, new objects', function(t){
 
     t.pass('Didn\'t crash');
 });
+
+test.only('memory test, no leaks, should take under 10 seconds on pretty much any machine', function(t){
+    t.plan(1);
+
+    var data = {};
+    var model1 = new Enti(data);
+    model1.on('.|**', () => {});
+    var iterations = 0;
+
+    while(iterations++ < 1000000) {
+        model1.set('key', Math.random());
+    }
+
+    t.pass('Didn\'t crash');
+});
