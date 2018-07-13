@@ -911,7 +911,7 @@ test('memory test, ~1GB total allocation, new objects', function(t){
     t.pass('Didn\'t crash');
 });
 
-test.only('memory test, no leaks, should take under 10 seconds on pretty much any machine', function(t){
+test('memory test, no leaks, should take under 10 seconds on pretty much any machine', function(t){
     t.plan(1);
 
     var data = {};
