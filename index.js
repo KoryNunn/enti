@@ -229,13 +229,16 @@ function createHandler(enti, trackedObjectPaths, trackedPaths, eventName){
     };
 }
 
-function trackPath(enti, eventName){
-    if(
-        eventName === 'newListener' &&
+var internalEvents = ['newListener', 'attach', 'detached', 'destroy'];
+function isInternalEvent(enti, eventName){
+    return ~internalEvents.indexOf(eventName) &&
         enti._events &&
-        enti._events.newListener &&
-        (!Array.isArray(enti._events.newListener) || enti._events.newListener.length === 1)
-    ){
+        enti._events[eventName] &&
+        (!Array.isArray(enti._events[eventName]) || enti._events[eventName].length === 1);
+}
+
+function trackPath(enti, eventName){
+    if(isInternalEvent(enti, eventName)){
         return;
     }
 
