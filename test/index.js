@@ -947,14 +947,14 @@ test('memory test, 1000 new keys', function(t){
     var model1 = new Enti(data);
     var iterations = 0;
 
-    while(iterations++ < 1000) {
+    while(iterations++ < 100) {
         model1.on('key' + iterations, () => {});
     }
 
-    iterations = 0;
-
-    while(iterations++ < 1000) {
-        model1.set('key' + iterations, 'x');
+    for(var i = 0; i < 1000; i++){
+        for(var j = 0; j < iterations; j++){
+            model1.set('key' + j, i);
+        }
     }
 
     t.pass('Didn\'t crash');

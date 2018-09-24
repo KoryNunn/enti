@@ -1,15 +1,15 @@
 var EventEmitter = require('events').EventEmitter,
     isInstance = require('is-instance');
 
-function createPool(size, create, dispose){
-    var pool = new Array(size);
+function createPool(growSize, create, dispose){
+    var pool = [];
     var index = 0;
     var totalCreated = 0;
     var totalDisposed = 0;
 
     return {
         size: function(){
-            return index;
+            return pool.length;
         },
         created: function(){
             return totalCreated;
@@ -19,8 +19,10 @@ function createPool(size, create, dispose){
         },
         get: function(){
             if(index){
-                dispose(pool[index]);
-                return pool[index--];
+                if(Math.floor(index / growSize) < pool.length - growSize){
+                    pool.splice(pool.length - growSize, growSize);
+                }
+                return pool[--index];
             }
 
             totalCreated++;
@@ -28,25 +30,25 @@ function createPool(size, create, dispose){
         },
         dispose: function(object){
             totalDisposed++;
-            if(index < size - 1){
-                pool[++index] = object;
+            dispose(object);
+            if(index >= pool.length){
+                pool = pool.concat(new Array(growSize));
             }
+            pool[index++] = object;
         }
     }
 }
 
-var setPool = createPool(1000, function(){
+var setPool = createPool(100, function(){
     return new Set();
 }, function(set){
     set.clear();
 });
 
-var emitKeyPool = createPool(1000, function(){
+var emitKeyPool = createPool(10, function(){
     return new Map();
 }, function(emitKey){
-    emitKey.forEach(function(set){
-        set.clear();
-    });
+    emitKey.forEach(setPool.dispose);
     emitKey.clear();
 });
 
