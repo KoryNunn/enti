@@ -1,6 +1,6 @@
 {
   "name": "enti",
-  "version": "6.0.4",
+  "version": "6.0.5",
   "description": "A super light-weight key-value 'observable' wrapper that works with references.",
   "main": "index.js",
   "directories": {
@@ -8,7 +8,7 @@
   },
   "scripts": {
     "test": "node test",
-    "watch": "watchify test/index.js -o test/index.browser.js"
+    "watch": "watchify -d test/index.js -o test/index.browser.js"
   },
   "author": "",
   "license": "ISC",

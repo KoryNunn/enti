@@ -1,6 +1,57 @@
 var EventEmitter = require('events').EventEmitter,
     isInstance = require('is-instance');
 
+function createPool(growSize, create, dispose){
+    var pool = [];
+    var index = 0;
+    var totalCreated = 0;
+    var totalDisposed = 0;
+
+    return {
+        size: function(){
+            return pool.length;
+        },
+        created: function(){
+            return totalCreated;
+        },
+        disposed: function(){
+            return totalDisposed;
+        },
+        get: function(){
+            if(index){
+                if(Math.floor(index / growSize) < pool.length - growSize){
+                    pool.splice(pool.length - growSize, growSize);
+                }
+                return pool[--index];
+            }
+
+            totalCreated++;
+            return create();
+        },
+        dispose: function(object){
+            totalDisposed++;
+            dispose(object);
+            if(index >= pool.length){
+                pool = pool.concat(new Array(growSize));
+            }
+            pool[index++] = object;
+        }
+    }
+}
+
+var setPool = createPool(100, function(){
+    return new Set();
+}, function(set){
+    set.clear();
+});
+
+var emitKeyPool = createPool(10, function(){
+    return new Map();
+}, function(emitKey){
+    emitKey.forEach(setPool.dispose);
+    emitKey.clear();
+});
+
 function toArray(items){
     return Array.prototype.slice.call(items);
 }
@@ -24,10 +75,20 @@ function getTargetKey(path){
 var eventSystemVersion = 1,
     globalKey = '_entiEventState' + eventSystemVersion,
     globalState = global[globalKey] = global[globalKey] || {
-        instances: []
+        instances: [],
+        getPoolInfo: function(){
+            return [
+                'setPool', setPool.size(),
+                'created', setPool.created(),
+                'disposed', setPool.disposed(),
+                'emitKeyPool', emitKeyPool.size(),
+                'created', emitKeyPool.created(),
+                'disposed', emitKeyPool.disposed()
+            ];
+        }
     };
 
-var modifiedEnties = globalState.modifiedEnties_v6 = globalState.modifiedEnties_v6 || new Set(),
+var modifiedEnties = globalState.modifiedEnties_v6 = globalState.modifiedEnties_v6 || setPool.get(),
     trackedObjects = globalState.trackedObjects_v6 = globalState.trackedObjects_v6 || new WeakMap();
     trackedHandlers = globalState.trackedHandlers_v6 = globalState.trackedHandlers_v6 || new WeakMap();
 
@@ -68,7 +129,7 @@ function addHandler(object, key, handler, parentHandler){
     }
 
     if(trackedHandler.get(object) == null){
-        trackedHandler.set(object, new Set());
+        trackedHandler.set(object, setPool.get());
     }
 
     if(trackedHandler.get(object).has(key)){
@@ -78,7 +139,7 @@ function addHandler(object, key, handler, parentHandler){
     var handlers = trackedKeys[key];
 
     if(!handlers){
-        handlers = new Set();
+        handlers = setPool.get();
         trackedKeys[key] = handlers;
     }
 
@@ -106,7 +167,16 @@ function removeHandler(object, key, handler, parentHandler){
     }
 
     handlers.delete(handler);
-    trackedHandler.get(object).delete(key);
+    if(handlers.size === 0){
+        setPool.dispose(handlers);
+        delete trackedKeys[key];
+    }
+    var trackedObjectHandlerSet = trackedHandler.get(object);
+    trackedObjectHandlerSet.delete(key);
+    if(trackedObjectHandlerSet.size === 0){
+        setPool.dispose(trackedObjectHandlerSet);
+        trackedHandler.delete(object);
+    }
 }
 
 function trackObjects(eventName, tracked, handler, object, key, path){
@@ -198,23 +268,26 @@ function trackObject(eventName, tracked, handler, object, key, path){
 }
 
 function emitForEnti(trackedPaths, trackedObjectPaths, eventName, emitKey, event, enti){
-    if(!emitKey[eventName]){
-        emitKey[eventName] = new WeakSet();
+    var emitSet = emitKey.get(eventName);
+    if(!emitSet){
+        emitSet = setPool.get();
+        emitKey.set(eventName, emitSet);
     }
 
-    if(emitKey[eventName].has(enti)){
+    if(emitSet.has(enti)){
         return;
     }
 
     if(!trackedPaths.trackedObjects.has(enti._model)){
         trackedPaths.entis.delete(enti);
         if(trackedPaths.entis.size === 0){
+            setPool.dispose(trackedPaths.entis);
             delete trackedObjectPaths[eventName];
         }
         return;
     }
 
-    emitKey[eventName].add(enti)
+    emitSet.add(enti);
 
     var targetKey = getTargetKey(eventName),
         value = isWildcardPath(targetKey) ? undefined : enti.get(targetKey);
@@ -254,7 +327,7 @@ function trackPath(enti, eventName){
 
     if(!trackedPaths){
         trackedPaths = {
-            entis: new Set(),
+            entis: setPool.get(),
             trackedObjects: new WeakSet()
         };
         trackedObjectPaths[eventName] = trackedPaths;
@@ -310,10 +383,17 @@ function emitEvent(object, key, value, emitKey){
 }
 
 function emit(events){
-    var emitKey = {};
+    var emitKey = emitKeyPool.get();
+
     events.forEach(function(event){
         emitEvent(event[0], event[1], event[2], emitKey);
     });
+
+    emitKeyPool.dispose(emitKey);
+}
+
+function onNewListener(){
+    modifiedEnties.add(this);
 }
 
 function Enti(model){
@@ -329,9 +409,7 @@ function Enti(model){
         this.attach(model);
     }
 
-    this.on('newListener', function(){
-        modifiedEnties.add(this);
-    });
+    this.on('newListener', onNewListener);
 }
 Enti.emit = function(model, key, value){
     if(!(typeof model === 'object' || typeof model === 'function')){
