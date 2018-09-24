@@ -389,6 +389,35 @@ test('update with dates', function(t){
     t.deepEqual(model1.get('a'), new Date(2002,2,2))
 });
 
+test('set during event', function(t){
+    t.plan(4);
+
+    var object = {},
+        model1 = new Enti(object),
+        model2 = new Enti(object);
+
+    model1.on('foo', function(value, event){
+        t.pass('model1 emitted');
+        model2.set('foo', 1);
+    }).attach(object);
+
+    model2.on('foo', function(value, event){
+        t.pass('model2 emitted');
+        model2.set('bar', 1);
+    }).attach(object);
+
+    model2.on('bar', function(value, event){
+        t.pass('model2 emitted');
+        model2.set('baz', 1);
+    }).attach(object);
+
+    model2.on('baz', function(value, event){
+        t.pass('model2 emitted');
+    }).attach(object);
+
+    model1.set('foo', 1);
+});
+
 test('detach during event', function(t){
     t.plan(2);
 
@@ -906,6 +935,26 @@ test('memory test, ~1GB total allocation, new objects', function(t){
         }
         Enti.set(data, 'x', testData);
         new Enti(data);
+    }
+
+    t.pass('Didn\'t crash');
+});
+
+test('memory test, 1000 new keys', function(t){
+    t.plan(1);
+
+    var data = {};
+    var model1 = new Enti(data);
+    var iterations = 0;
+
+    while(iterations++ < 1000) {
+        model1.on('key' + iterations, () => {});
+    }
+
+    iterations = 0;
+
+    while(iterations++ < 1000) {
+        model1.set('key' + iterations, 'x');
     }
 
     t.pass('Didn\'t crash');
