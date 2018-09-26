@@ -208,7 +208,7 @@ function trackObject(eventName, tracked, handler, object, key, path){
         target = object[key],
         targetIsObject = target && typeof target === 'object';
 
-    var handle = function(value, event, emitKey){
+    var handle = function(event, emitKey){
         if(eventKey !== '*' && typeof object[eventKey] === 'object' && object[eventKey] !== target){
             if(targetIsObject){
                 tracked.delete(target);
@@ -227,7 +227,7 @@ function trackObject(eventName, tracked, handler, object, key, path){
         }
 
         if(key !== '**' || !path){
-            handler(value, event, emitKey);
+            handler(event, emitKey);
         }
     };
 
