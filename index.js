@@ -3,7 +3,7 @@ var EventEmitter = require('events').EventEmitter,
 
 function createPool(growSize, create, dispose){
     var pool = [];
-    var index = 0;
+    var index = -1;
     var totalCreated = 0;
     var totalDisposed = 0;
 
@@ -18,11 +18,10 @@ function createPool(growSize, create, dispose){
             return totalDisposed;
         },
         get: function(){
-            if(index){
-                if(Math.floor(index / growSize) < pool.length - growSize){
-                    pool.splice(pool.length - growSize, growSize);
-                }
-                return pool[--index];
+            if(index >= 0){
+                var item = pool[--index];
+                pool[--index] = null;
+                return item;
             }
 
             totalCreated++;
@@ -39,7 +38,7 @@ function createPool(growSize, create, dispose){
     }
 }
 
-var setPool = createPool(100, function(){
+var setPool = createPool(1000, function(){
     return new Set();
 }, function(set){
     set.clear();
