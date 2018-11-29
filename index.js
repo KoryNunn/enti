@@ -19,8 +19,9 @@ function createPool(growSize, create, dispose){
         },
         get: function(){
             if(index >= 0){
-                var item = pool[--index];
-                pool[--index] = null;
+                var item = pool[index];
+                pool[index] = null;
+                index--;
                 return item;
             }
 
@@ -33,7 +34,8 @@ function createPool(growSize, create, dispose){
             if(index >= pool.length){
                 pool = pool.concat(new Array(growSize));
             }
-            pool[index++] = object;
+            index++;
+            pool[index] = object;
         }
     }
 }
