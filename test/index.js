@@ -389,7 +389,7 @@ test('update with dates', function(t){
     t.deepEqual(model1.get('a'), new Date(2002,2,2))
 });
 
-test('update with options', function(t){
+test('update with morph strategy', function(t){
     t.plan(1);
 
     var object = {
@@ -400,6 +400,29 @@ test('update with options', function(t){
     model1.update('foo', [1, 2], { strategy: 'morph' });
 
     t.deepEqual(model1.get('foo'), [1, 2]);
+});
+
+test('deep update with morph strategy', function(t){
+    t.plan(2);
+
+    var object = {
+            foo: [1, {
+                bar: 1
+            }, 3]
+        },
+        model1 = new Enti(object);
+
+    var mutatedObject = object.foo[1];
+
+    model1.update('foo', [1, {
+        baz: 2
+    }], { strategy: 'morph' });
+
+    t.deepEqual(model1.get('foo'), [1, {
+        baz: 2
+    }], 'Correct structure');
+
+    t.equal(model1.get('foo.1'), mutatedObject, 'Reference retained');
 });
 
 test('set during event', function(t){
