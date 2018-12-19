@@ -397,6 +397,16 @@ function onNewListener(){
     modifiedEnties.add(this);
 }
 
+function modelRemove(model, events, key){
+    if(Array.isArray(model)){
+        model.splice(key, 1);
+        events.push([model, 'length', model.length]);
+    }else{
+        delete model[key];
+        events.push([model, key]);
+    }
+}
+
 function Enti(model){
     var detached = model === false;
 
@@ -490,7 +500,7 @@ Enti.push = function(model, key, value){
     }
 
     if(!Array.isArray(target)){
-        throw 'The target is not an array.';
+        throw new Error('The target is not an array.');
     }
 
     target.push(value);
@@ -524,7 +534,7 @@ Enti.insert = function(model, key, value, index){
     }
 
     if(!Array.isArray(target)){
-        throw 'The target is not an array.';
+        throw new Error('The target is not an array.');
     }
 
     target.splice(index, 0, value);
@@ -553,18 +563,12 @@ Enti.remove = function(model, key, subKey){
     }
 
     if(key === '.'){
-        throw '. (self) is not a valid key to remove';
+        throw new Error('. (self) is not a valid key to remove');
     }
 
     var events = [];
 
-    if(Array.isArray(model)){
-        model.splice(key, 1);
-        events.push([model, 'length', model.length]);
-    }else{
-        delete model[key];
-        events.push([model, key]);
-    }
+    modelRemove(model, events, key);
 
     emit(events);
 };
@@ -583,7 +587,7 @@ Enti.move = function(model, key, index){
     }
 
     if(!Array.isArray(model)){
-        throw 'The model is not an array.';
+        throw new Error('The model is not an array.');
     }
 
     var item = model[key];
@@ -594,7 +598,7 @@ Enti.move = function(model, key, index){
 
     emit([[model, index, item]]);
 };
-Enti.update = function(model, key, value){
+Enti.update = function(model, key, value, options){
     if(!model || typeof model !== 'object'){
         return;
     }
@@ -602,7 +606,8 @@ Enti.update = function(model, key, value){
     var target,
         isArray = Array.isArray(value);
 
-    if(arguments.length < 3){
+    if(typeof key === 'object'){
+        options = value;
         value = key;
         key = '.';
         target = model;
@@ -620,11 +625,11 @@ Enti.update = function(model, key, value){
     }
 
     if(typeof value !== 'object'){
-        throw 'The value is not an object.';
+        throw new Error('The value is not an object.');
     }
 
     if(typeof target !== 'object'){
-        throw 'The target is not an object.';
+        throw new Error('The target is not an object.');
     }
 
     var events = [],
@@ -640,6 +645,14 @@ Enti.update = function(model, key, value){
             }
             target[key] = value[key];
             events.push([target, key, value[key]]);
+        }
+
+        if(options && options.strategy === 'morph'){
+            for(var key in target){
+                if(!(key in value)){
+                    modelRemove(target, events, key);
+                }
+            }
         }
 
         if(Array.isArray(target)){
@@ -662,7 +675,7 @@ Enti.prototype.attach = function(model){
     this.detach();
 
     if(model && !isInstance(model)){
-        throw 'Entis may only be attached to an object, or null/undefined';
+        throw new Error('Entis may only be attached to an object, or null/undefined');
     }
 
     modifiedEnties.add(this);

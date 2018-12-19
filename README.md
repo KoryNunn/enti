@@ -98,6 +98,14 @@ model1.on('something', function(value, event){
 
 returns the value on the attached object at `path`
 
+You can get the currently attached object using `'.'`
+
+```javascript
+
+model.get('.') // -> object
+
+```
+
 ### .set(path, value)
 
 sets the value on the attached object at `path` to `value`
@@ -112,19 +120,28 @@ sets the value on the attached object at `path` to `value`
 
 `push` will throw if the target of the push is not an array.
 
-You can get the currently attached object using `'.'`
+### .update([path,] value[, options])
 
-```javascript
+`updates`s the target at `path` to match `value.
 
-model1.get('.') // -> object
+`options` can contain:
 
-```
+`strategy`: 'merge' (default) or 'morph'
+
+`merge`: Merge `value` into target, retaining untouched keys in `target`
+`morph`: Merge `value` into target, removing any keys that are not in `value`
+
+### .move([path,] index)
+
+`move`s the target at `path` to `index`
+
+`move` will throw if the target of the move is not an array.
 
 ## Paths
 
 The path syntax is fairly minimal, with only 4 special tokens
 
-# . (dot/period) 
+# . (dot/period)
 
 Used to drill down into the object. eg:
 
@@ -132,21 +149,21 @@ Used to drill down into the object. eg:
 var bar = get('foo.bar');
 ```
 
-is equivilent to 
+is equivilent to
 
 ```
 var bar = object.foo.bar;
 ```
 
-# * (Wildcard) 
+# * (Wildcard)
 
 Will match events from any key on the object
 
-# ** (Feralcard) 
+# ** (Feralcard)
 
 Recursive wildecard. Will match events form any key, and any sub-key  on the object.
 
-# | (Filter) 
+# | (Filter)
 
 Functionally identical to a dot/period, but separates the target of an event from the rest of the path.
 
