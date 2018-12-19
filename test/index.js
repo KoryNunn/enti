@@ -389,6 +389,19 @@ test('update with dates', function(t){
     t.deepEqual(model1.get('a'), new Date(2002,2,2))
 });
 
+test('update with options', function(t){
+    t.plan(1);
+
+    var object = {
+            foo: [1, 2, 3]
+        },
+        model1 = new Enti(object);
+
+    model1.update('foo', [1, 2], { strategy: 'morph' });
+
+    t.deepEqual(model1.get('foo'), [1, 2]);
+});
+
 test('set during event', function(t){
     t.plan(4);
 
