@@ -954,6 +954,23 @@ test('emit', function(t){
     Enti.emit(model, 'dooby', 'dooby');
 });
 
+test('destroy', function(t){
+    t.plan(1);
+
+    var model = {},
+        entiModel = new Enti(model);
+
+    entiModel.on('dooby', function(dooby, event){
+        t.fail('should not recieve event');
+    });
+
+    entiModel.destroy();
+
+    Enti.emit(model, 'dooby', 'dooby');
+
+    t.pass('complete');
+});
+
 test('memory test, ~1GB total allocation, new objects', function(t){
     t.plan(1);
 

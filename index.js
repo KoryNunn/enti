@@ -695,8 +695,8 @@ Enti.prototype.detach = function(){
 };
 Enti.prototype.destroy = function(){
     this.detach();
-    this._events = null;
     this.emit('destroy');
+    this._events = undefined;
 };
 Enti.prototype.get = function(key){
     return Enti.get(this._model, key);
