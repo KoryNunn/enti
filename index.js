@@ -282,7 +282,6 @@ function emitForEnti(trackedPaths, trackedObjectPaths, eventName, emitKey, event
     if(!trackedPaths.trackedObjects.has(enti._model)){
         trackedPaths.entis.delete(enti);
         if(trackedPaths.entis.size === 0){
-            setPool.dispose(trackedPaths.entis);
             delete trackedObjectPaths[eventName];
         }
         return;
