@@ -359,6 +359,23 @@ test('update', function(t){
     });
 });
 
+test('update deep missing object', function(t){
+    t.plan(2);
+
+    var object = {},
+        model1 = new Enti(object);
+
+    model1.on('*.*', function(value, event){
+        t.pass('model1 emitted *.*');
+    }).attach(object);
+
+    model1.on('a', function(value, event){
+        t.pass('model1 emitted a');
+    }).attach(object);
+
+    model1.update('a', { b: 'foo' });
+});
+
 test('update cyclic', function(t){
     t.plan(1);
 

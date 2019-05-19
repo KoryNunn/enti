@@ -605,6 +605,9 @@ Enti.update = function(model, key, value, options){
     var target,
         isArray = Array.isArray(value);
 
+    var events = [],
+        updatedObjects = new WeakSet();
+
     if(typeof key === 'object'){
         options = value;
         value = key;
@@ -616,11 +619,12 @@ Enti.update = function(model, key, value, options){
             return Enti.update(model[path[0]], path[1], value);
         }
 
-        target = model[key];
-
-        if(target == null){
+        if(!(key in model)){
             model[key] = isArray ? [] : {};
+            events.push([model, key, target]);
         }
+
+        target = model[key];
     }
 
     if(typeof value !== 'object'){
@@ -630,9 +634,6 @@ Enti.update = function(model, key, value, options){
     if(typeof target !== 'object'){
         throw new Error('The target is not an object.');
     }
-
-    var events = [],
-        updatedObjects = new WeakSet();
 
     function updateTarget(target, value){
         for(var key in value){
