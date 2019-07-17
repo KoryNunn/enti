@@ -4,91 +4,87 @@ A super light-weight key-value 'observable' wrapper that works with references.
 
 # usage
 
-```
+```javascript
 var Enti = require('enti');
 
 var object = {
     foo: 'bar'
 };
 
-var model1 = new Enti(object);
-
-model1.on('foo', function(foo){
+Enti.on('foo', function(foo){
     // object.foo changed. do something.
 });
 
-model1.set('foo', 'baz');
+Enti.set('foo', 'baz');
 ```
 
 Enti knows about references too:
 
 
-```
-var model2 = new Enti(object);
-
-model2.on('foo', function(foo){
+```javascript
+Enti.on('foo', function(foo){
     // object.foo changed. do something.
 });
 
-model1.set('foo', 'baz'); // sent into a different Enti, triggers events for all enti's
+Enti.set('foo', 'baz'); // sent into a different Enti, triggers events for all enti's
 ```
 
 And you can use wildcards to watch for events:
 
 Single level:
-```
-model1.on('*', function(value){
+```javascript
+Enti.on('*', function(value){
     // object.<anything> changed. do something.
     // value will be undefined, because the target path contains a wildcard.
 });
 
-model1.set('foo', 'baz');
+Enti.set('foo', 'baz');
 ```
 
 Any level:
-```
-model1.on('**', function(value){
+```javascript
+Enti.on('**', function(value){
     // object.<anything>.<anything>.<anything>.<etc...> changed. do something.
     // value will be undefined, because the target path contains a wildcard.
 });
 
-model1.set('foo', 'baz');
+Enti.set('foo', 'baz');
 ```
 
 Which can be combined with other keys:
 
 
-```
-model1.on('foo.*.bar', function(value){
+```javascript
+Enti.on('foo.*.bar', function(value){
     // object.foo.<anything>.bar changed. do something.
     // value will be undefined, because the target path contains a wildcard.
 });
 
-model1.set('foo', 'baz', {
+Enti.set('foo', 'baz', {
     bar:1
 });
 ```
 
 And used with filters, to specify what data you are actually after:
 
-```
-model1.on('foo|*.bar', function(foo){
+```javascript
+Enti.on('foo|*.bar', function(foo){
     // object.foo.<anything>.bar changed. do something.
     // model.get(left hand side of the pipe (|)) will be passed as the first parameter.
 });
 
-model1.set('foo', 'baz', {
+Enti.set('foo', 'baz', {
     bar:1
 });
 ```
 
 All handlers will be passed an event object with the object the event was raised on, and the key and value that caused the event:
 
-```
-model1.on('something', function(value, event){
+```javascript
+Enti.on('something', function(value, event){
     event.key === 'something';
     event.value === value;
-    event.target === model1.get('.');
+    event.target === Enti.get(model1, '.');
 });
 ```
 
@@ -102,25 +98,25 @@ You can get the currently attached object using `'.'`
 
 ```javascript
 
-model.get('.') // -> object
+Enti.get(object, '.') // -> object
 
 ```
 
-### .set(path, value)
+### .set(object, path, value)
 
 sets the value on the attached object at `path` to `value`
 
-### .remove(path)
+### .remove(object, path)
 
 `delete`s or `splice`s the `path` on the attached object
 
-### .push([path,] value)
+### .push(object, [path,] value)
 
 `push`s the `value` into the attached object, or the array at `path` on the attached object.
 
 `push` will throw if the target of the push is not an array.
 
-### .update([path,] value[, options])
+### .update(object, [path,] value[, options])
 
 `updates`s the target at `path` to match `value.
 
@@ -145,13 +141,13 @@ The path syntax is fairly minimal, with only 4 special tokens
 
 Used to drill down into the object. eg:
 
-```
-var bar = get('foo.bar');
+```javascript
+var bar = Enti.get(object, 'foo.bar');
 ```
 
 is equivilent to
 
-```
+```javascript
 var bar = object.foo.bar;
 ```
 
