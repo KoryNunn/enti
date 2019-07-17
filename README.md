@@ -11,56 +11,56 @@ var object = {
     foo: 'bar'
 };
 
-Enti.on('foo', function(foo){
+Enti.on(object, 'foo', function(foo){
     // object.foo changed. do something.
 });
 
-Enti.set('foo', 'baz');
+Enti.set(object, 'foo', 'baz');
 ```
 
 Enti knows about references too:
 
 
 ```javascript
-Enti.on('foo', function(foo){
+Enti.on(object, 'foo', function(foo){
     // object.foo changed. do something.
 });
 
-Enti.set('foo', 'baz'); // sent into a different Enti, triggers events for all enti's
+Enti.set(object, 'foo', 'baz'); // sent into a different Enti, triggers events for all enti's
 ```
 
 And you can use wildcards to watch for events:
 
 Single level:
 ```javascript
-Enti.on('*', function(value){
+Enti.on(object, '*', function(value){
     // object.<anything> changed. do something.
     // value will be undefined, because the target path contains a wildcard.
 });
 
-Enti.set('foo', 'baz');
+Enti.set(object, 'foo', 'baz');
 ```
 
 Any level:
 ```javascript
-Enti.on('**', function(value){
+Enti.on(object, '**', function(value){
     // object.<anything>.<anything>.<anything>.<etc...> changed. do something.
     // value will be undefined, because the target path contains a wildcard.
 });
 
-Enti.set('foo', 'baz');
+Enti.set(object, 'foo', 'baz');
 ```
 
 Which can be combined with other keys:
 
 
 ```javascript
-Enti.on('foo.*.bar', function(value){
+Enti.on(object, 'foo.*.bar', function(value){
     // object.foo.<anything>.bar changed. do something.
     // value will be undefined, because the target path contains a wildcard.
 });
 
-Enti.set('foo', 'baz', {
+Enti.set(object, 'foo', 'baz', {
     bar:1
 });
 ```
@@ -68,12 +68,12 @@ Enti.set('foo', 'baz', {
 And used with filters, to specify what data you are actually after:
 
 ```javascript
-Enti.on('foo|*.bar', function(foo){
+Enti.on(object, 'foo|*.bar', function(foo){
     // object.foo.<anything>.bar changed. do something.
     // model.get(left hand side of the pipe (|)) will be passed as the first parameter.
 });
 
-Enti.set('foo', 'baz', {
+Enti.set(object, 'foo', 'baz', {
     bar:1
 });
 ```
@@ -81,7 +81,7 @@ Enti.set('foo', 'baz', {
 All handlers will be passed an event object with the object the event was raised on, and the key and value that caused the event:
 
 ```javascript
-Enti.on('something', function(value, event){
+Enti.on(object, 'something', function(value, event){
     event.key === 'something';
     event.value === value;
     event.target === Enti.get(model1, '.');
