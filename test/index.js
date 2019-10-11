@@ -1057,3 +1057,20 @@ test('construct without new', function(t){
 
     model.set('a', 1);
 });
+
+test('new observable api', function(t){
+    t.plan(2);
+
+    var data = {};
+
+    var observable = Enti.create({
+        'a': function(value, event){
+            t.equal(value, 1);
+            t.equal(event.key, 'a');
+        }
+    });
+
+    observable.attach(data);
+
+    Enti.set(data, 'a', 1);
+});

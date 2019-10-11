@@ -748,6 +748,17 @@ Enti.store = function(target, key, value){
     Enti.set(target, key, value);
 };
 
+Enti.create = function(handlers){
+    var observer = new Enti();
+    observer.handlers = handlers;
+
+    Object.keys(handlers).forEach(function(path){
+        observer.on(path, handlers[path])
+    });
+
+    return observer;
+};
+
 globalState.instances.push(Enti);
 
 module.exports = Enti;
