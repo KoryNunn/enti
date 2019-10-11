@@ -407,6 +407,10 @@ function modelRemove(model, events, key){
 }
 
 function Enti(model){
+    if(!(this instanceof Enti)){
+        return new Enti(model);
+    }
+
     var detached = model === false;
 
     if(!model || (typeof model !== 'object' && typeof model !== 'function')){

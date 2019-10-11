@@ -1044,3 +1044,16 @@ test('memory test, no leaks, should take under 10 seconds on pretty much any mac
 
     t.pass('Didn\'t crash');
 });
+
+test('construct without new', function(t){
+    t.plan(2);
+
+    var model = Enti({});
+
+    model.on('a', function(value, event){
+        t.equal(value, 1);
+        t.equal(event.key, 'a');
+    });
+
+    model.set('a', 1);
+});
