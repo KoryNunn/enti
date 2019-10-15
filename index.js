@@ -597,7 +597,7 @@ Enti.move = function(model, key, index){
 
     model.splice(key, 1);
 
-    model.splice(index - (index > key ? 0 : 1), 0, item);
+    model.splice(index, 0, item);
 
     emit([[model, index, item]]);
 };

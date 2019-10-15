@@ -303,19 +303,79 @@ test('insert self', function(t){
     model.insert(5, 1);
 });
 
-test('move', function(t){
+test('move forward one', function(t){
     t.plan(1);
 
     var object = [1,2,3],
         model = new Enti(object);
 
     model.on('*', function(value, event){
-        t.equal(object[0], 2);
+        t.deepEqual(object, [2,1,3]);
+    });
+
+    model.attach(object);
+
+    model.move('0', 1);
+});
+
+test('move forward two', function(t){
+    t.plan(1);
+
+    var object = [1,2,3],
+        model = new Enti(object);
+
+    model.on('*', function(value, event){
+        t.deepEqual(object, [2, 3, 1]);
     });
 
     model.attach(object);
 
     model.move('0', 2);
+});
+
+test('move backward one', function(t){
+    t.plan(1);
+
+    var object = [1,2,3],
+        model = new Enti(object);
+
+    model.on('*', function(value, event){
+        t.deepEqual(object, [2, 1, 3]);
+    });
+
+    model.attach(object);
+
+    model.move('1', 0);
+});
+
+test('move backward two', function(t){
+    t.plan(1);
+
+    var object = [1,2,3],
+        model = new Enti(object);
+
+    model.on('*', function(value, event){
+        t.deepEqual(object, [3, 1, 2]);
+    });
+
+    model.attach(object);
+
+    model.move('2', 0);
+});
+
+test('move two from back', function(t){
+    t.plan(1);
+
+    var object = [1,2,3,4,5],
+        model = new Enti(object);
+
+    model.on('*', function(value, event){
+        t.deepEqual(object, [2,3,1,4,5]);
+    });
+
+    model.attach(object);
+
+    model.move('0', -2);
 });
 
 test('remove', function(t){
