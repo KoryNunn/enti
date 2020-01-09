@@ -89,9 +89,9 @@ var eventSystemVersion = 1,
         }
     };
 
-var modifiedEnties = globalState.modifiedEnties_v6 = globalState.modifiedEnties_v6 || setPool.get(),
-    trackedObjects = globalState.trackedObjects_v6 = globalState.trackedObjects_v6 || new WeakMap();
-    trackedHandlers = globalState.trackedHandlers_v6 = globalState.trackedHandlers_v6 || new WeakMap();
+var modifiedEnties = globalState.modifiedEnties_v6 = globalState.modifiedEnties_v6 || setPool.get();
+var trackedObjects = globalState.trackedObjects_v6 = globalState.trackedObjects_v6 || new WeakMap();
+var trackedHandlers = globalState.trackedHandlers_v6 = globalState.trackedHandlers_v6 || new WeakMap();
 
 function leftAndRest(path){
     var stringPath = (path + '');
