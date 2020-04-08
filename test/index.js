@@ -419,6 +419,22 @@ test('update', function(t){
     });
 });
 
+test('update object to null', function(t){
+    t.plan(1);
+
+    var object = {
+        x: {}
+    }
+
+    Enti.update(object, {
+        x: null
+    })
+
+    t.deepEqual(object, {
+        x: null
+    })
+});
+
 test('update deep missing object', function(t){
     t.plan(2);
 
