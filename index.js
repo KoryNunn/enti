@@ -642,13 +642,22 @@ Enti.update = function(model, key, value, options){
     function updateTarget(target, value){
         for(var key in value){
             var currentValue = target[key];
-            if(currentValue instanceof Object && !updatedObjects.has(currentValue) && !(currentValue instanceof Date)){
+            var updatedValue = value[key];
+
+            if(
+                updatedValue &&
+                typeof updatedValue === 'object' &&
+                currentValue instanceof Object &&
+                !updatedObjects.has(currentValue) &&
+                !(currentValue instanceof Date)
+            ){
                 updatedObjects.add(currentValue);
-                updateTarget(currentValue, value[key]);
+                updateTarget(currentValue, updatedValue);
                 continue;
             }
-            target[key] = value[key];
-            events.push([target, key, value[key]]);
+
+            target[key] = updatedValue;
+            events.push([target, key, updatedValue]);
         }
 
         if(options && options.strategy === 'morph'){
