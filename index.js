@@ -343,13 +343,12 @@ function trackPath(enti, eventName){
 }
 
 function trackPaths(enti){
-    if(!enti._events || !enti._model){
-        return;
+    if(enti._events && enti._model){
+        for(var key in enti._events){
+            trackPath(enti, key);
+        }
     }
 
-    for(var key in enti._events){
-        trackPath(enti, key);
-    }
     modifiedEnties.delete(enti);
 }
 
