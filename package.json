@@ -1,6 +1,6 @@
 {
   "name": "enti",
-  "version": "6.4.2",
+  "version": "6.4.3",
   "description": "A super light-weight key-value 'observable' wrapper that works with references.",
   "main": "index.js",
   "directories": {
