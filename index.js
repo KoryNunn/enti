@@ -690,7 +690,10 @@ Enti.prototype.attach = function(model){
         throw new Error('Entis may only be attached to an object, or null/undefined');
     }
 
-    modifiedEnties.add(this);
+    if(this._events) {
+        modifiedEnties.add(this);
+    }
+
     this._attached = true;
     this._model = model;
     this.emit('attach', model);
